@@ -1,0 +1,5 @@
+server:
+  port: 8080
+path:
+  ffmpeg: /usr/bin/ffmpeg
+  ffprobe: /usr/bin/ffmpeg

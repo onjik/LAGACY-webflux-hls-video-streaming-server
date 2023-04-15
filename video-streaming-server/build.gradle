@@ -32,6 +32,9 @@ dependencies {
 
 	// https://mvnrepository.com/artifact/net.bramp.ffmpeg/ffmpeg
 	implementation 'net.bramp.ffmpeg:ffmpeg:0.6.2'
+	implementation 'io.asyncer:r2dbc-mysql:1.0.0'
+	implementation("io.netty:netty-resolver-dns-native-macos:4.1.79.Final:osx-aarch_64")
+
 }
 
 tasks.named('test') {

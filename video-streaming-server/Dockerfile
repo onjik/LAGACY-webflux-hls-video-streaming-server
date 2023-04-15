@@ -5,6 +5,8 @@ MAINTAINER xodks672@gmail.com
 
 WORKDIR /
 
+VOLUME ["/app/secret", "/app/media"]
+
 EXPOSE 8000 12342
 
 # 변수 (빌드파일 경로)
