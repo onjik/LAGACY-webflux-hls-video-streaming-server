@@ -35,6 +35,10 @@ dependencies {
 	implementation 'io.asyncer:r2dbc-mysql:1.0.0'
 	implementation("io.netty:netty-resolver-dns-native-macos:4.1.79.Final:osx-aarch_64")
 
+	//block hound
+	implementation 'io.projectreactor.tools:blockhound:1.0.6.RELEASE'
+
+
 }
 
 tasks.named('test') {
