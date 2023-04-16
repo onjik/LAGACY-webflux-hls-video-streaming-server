@@ -4,6 +4,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.validation.BindingResult;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,20 +24,8 @@ public class FieldError {
         this.reason = reason;
     }
 
-    public static List<FieldError> of(String field, String value, String reason) {
-        List<FieldError> fieldErrors = new ArrayList<>();
-        fieldErrors.add(new FieldError(field, value, reason));
-        return fieldErrors;
+    public static Mono<FieldError> of(String field, String value, String reason) {
+        return Mono.just(new FieldError(field,value,reason));
     }
 
-    public static List<FieldError> of(BindingResult bindingResult) {
-        List<org.springframework.validation.FieldError> fieldErrors = bindingResult.getFieldErrors();
-        return fieldErrors.stream()
-                .map(error -> new FieldError(
-                        error.getField(),
-                        error.getRejectedValue() == null ? "" : error.getRejectedValue().toString(),
-                        error.getDefaultMessage()
-                ))
-                .collect(Collectors.toList());
-    }
 }

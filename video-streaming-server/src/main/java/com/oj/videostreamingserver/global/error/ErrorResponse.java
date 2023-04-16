@@ -2,8 +2,14 @@ package com.oj.videostreamingserver.global.error;
 
 import com.oj.videostreamingserver.global.dto.ResponseDto;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +19,7 @@ import java.util.List;
  * use {@link ErrorResponse#of(ErrorCode, BindingResult)} method to create
  */
 @Getter
+@Slf4j
 public class ErrorResponse extends ResponseDto {
     private String message;
     private String status;
@@ -35,21 +42,21 @@ public class ErrorResponse extends ResponseDto {
         this.code = code.getCode();
     }
 
-    public static ErrorResponse of(ErrorCode code){
-        return new ErrorResponse(code);
+
+    public static Mono<ServerResponse> of(Exception e){
+        log.error("unhandled exception : {}",e.getMessage());
+        e.printStackTrace();
+        return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
-    public static ErrorResponse of(ErrorCode code, BindingResult bindingResult){
-        return new ErrorResponse(code, FieldError.of(bindingResult));
+    public static Mono<ServerResponse> of(ErrorCode code){
+        return ServerResponse.status(code.getStatus()).build();
     }
 
-    public static ErrorResponse of(MethodArgumentTypeMismatchException e){
-        String value = e.getValue() == null ? "" : e.getValue().toString();
-        List<FieldError> errors = FieldError.of(e.getName(), value, e.getErrorCode());
-        return new ErrorResponse(ErrorCode.INVALID_TYPE_VALUE,errors);
-    }
 
-    public static ErrorResponse of(ErrorCode errorCode, List<FieldError> fieldErrors) {
-        return new ErrorResponse(errorCode, fieldErrors);
+    public static Mono<ServerResponse> of(ErrorCode errorCode, Mono<FieldError> fieldError) {
+        return ServerResponse.status(errorCode.getStatus())
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(fieldError);
     }
 }

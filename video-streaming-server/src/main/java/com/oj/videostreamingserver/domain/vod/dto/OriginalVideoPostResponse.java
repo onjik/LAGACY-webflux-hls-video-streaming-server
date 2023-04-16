@@ -8,9 +8,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OriginalVideoPostResponse {
     //encrypted tmp file path
-    private String tempId;
+    private Long tempId;
 
-    public OriginalVideoPostResponse(String tempId) {
+    public OriginalVideoPostResponse(Long tempId) {
         this.tempId = tempId;
     }
 }

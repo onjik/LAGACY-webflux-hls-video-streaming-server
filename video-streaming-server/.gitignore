@@ -1,5 +1,7 @@
 # java .gitignore from github desktop
 
+app/
+
 # Compiled class file
 *.class
 

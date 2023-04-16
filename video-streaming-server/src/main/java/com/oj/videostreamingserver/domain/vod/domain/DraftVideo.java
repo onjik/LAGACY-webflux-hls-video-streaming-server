@@ -15,7 +15,7 @@ public class DraftVideo {
 
     @Id
     @Column("draft_id")
-    private Integer id;
+    private Long id;
 
     @Column("file_path")
     private String filePath;

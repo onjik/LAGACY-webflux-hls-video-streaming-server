@@ -1,10 +1,5 @@
 server:
   port: 8080
-spring:
-  r2dbc:
-    url: r2dbc:pool:mysql://localhost:3306/youtube_clone
-    username: root
-    password: qwer1234
 
 # 추가 설정 - R2DBC에서 Database로 나가는 쿼리를 보고 싶으면 아래처럼 로깅레벨을 설정해야 함
 logging:
@@ -15,6 +10,7 @@ path:
   ffmpeg: "/opt/homebrew/bin/ffmpeg"
   ffprobe: "/opt/homebrew/bin/ffprobe"
 
-# 시크릿 파일 패스
 volume:
+  # 시크릿 파일 패스 file: classpath:
   secret: "classpath:secret-dev.yml"
+  media: "app/media"
