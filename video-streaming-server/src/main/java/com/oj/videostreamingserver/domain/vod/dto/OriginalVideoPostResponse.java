@@ -13,4 +13,12 @@ public class OriginalVideoPostResponse {
     public OriginalVideoPostResponse(Long tempId) {
         this.tempId = tempId;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof OriginalVideoPostResponse)){
+            return false;
+        }
+        return ((OriginalVideoPostResponse) obj).tempId == this.tempId;
+    }
 }

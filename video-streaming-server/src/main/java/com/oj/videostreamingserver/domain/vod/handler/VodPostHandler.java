@@ -13,6 +13,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.codec.multipart.Part;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -63,13 +64,13 @@ public class VodPostHandler {
         return request.multipartData()
                 //video 필드 체크
                 .filter(multiMap -> multiMap.containsKey("video"))
-                .flatMap(multiMap -> Mono.just(multiMap.get("video"))
-                        .flatMap(parts -> {
-                            if (parts.size() != 1) {
-                                return Mono.empty();
-                            }
-                            return Mono.just(parts.get(0));
-                        }))//Mono<Part>
+                .flatMap(multiMap -> {
+                    List<Part> video = multiMap.get("video");
+                    if (video.size() != 1){
+                        return Mono.empty();
+                    }
+                    return Mono.just(video.get(0));
+                })
                 .ofType(FilePart.class)//Mono<FilePart>
                 .switchIfEmpty(Mono.error(new InvalidInputValueException("video", "", "Exactly one video file is required")))
                 //content-type 헤더 체크
@@ -100,7 +101,7 @@ public class VodPostHandler {
      * @implNote {@link org.springframework.dao.OptimisticLockingFailureException} 논리적으로 발생하지 않는다고 생각, 왜냐하면 어기서 save 는 오직 INSERT 를 위해 사용되기 때문
      * @author Onjee Kim
      */
-    private Mono<DraftVideo> saveToLocalDraftPath(FilePart filePart, long channelId) throws LocalFileException {
+    protected Mono<DraftVideo> saveToLocalDraftPath(FilePart filePart, Long channelId) throws LocalFileException {
         //파일 경로 생성
         File directoryFile;
         String DRAFT_MIDDLE_PATH = "draft";

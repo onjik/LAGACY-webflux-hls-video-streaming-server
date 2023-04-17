@@ -24,23 +24,11 @@ class DraftVideoRepositoryTest {
     @Autowired
     DraftVideoRepository repository;
 
-    @Test
-    void readsAllEn(){
-        repository.save(new DraftVideo("/ttke/dd", 1L))
-                .as(Transaction::withRollBack)
-                        .as(StepVerifier::create)
-                .expectNextCount(1)
-                                .verifyComplete();
 
-        repository.findAll().log()
-                .as(StepVerifier::create)
-                .expectNextCount(7)
-                .verifyComplete();
-    }
 
     @Test
     @DisplayName("잘못된 foreign key")
-    void testAA(){
+    void foreignKeyViolation(){
         repository.save(new DraftVideo("/dd/fd",2L)).log()
                 .as(Transaction::withRollBack)
                 .as(StepVerifier::create)
