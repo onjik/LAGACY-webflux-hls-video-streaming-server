@@ -3,7 +3,6 @@ package com.oj.videostreamingserver.domain.vod.handler;
 import com.oj.videostreamingserver.domain.vod.domain.DraftVideo;
 import com.oj.videostreamingserver.domain.vod.dto.OriginalVideoPostResponse;
 import com.oj.videostreamingserver.domain.vod.repository.DraftVideoRepository;
-import com.oj.videostreamingserver.domain.vod.service.VideoFileService;
 import com.oj.videostreamingserver.global.error.ErrorResponse;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.error.exception.LocalFileException;
@@ -43,7 +42,6 @@ public class VodPostHandler {
 
     //spring beans
     private final TransactionalOperator transactionalOperator;
-    private final VideoFileService videoFileService;
     private final DraftVideoRepository draftVideoRepository;
 
 
@@ -61,9 +59,10 @@ public class VodPostHandler {
      *
      */
     public Mono<ServerResponse> postVideo(ServerRequest request) {
-        long channelId = 2; //임시로 구현
+        long channelId = 1; //임시로 구현
         return request.multipartData()
                 //video 필드 체크
+                .log()
                 .filter(multiMap -> multiMap.containsKey("video"))
                 .flatMap(multiMap -> Mono.just(multiMap.get("video"))
                         .flatMap(parts -> {
