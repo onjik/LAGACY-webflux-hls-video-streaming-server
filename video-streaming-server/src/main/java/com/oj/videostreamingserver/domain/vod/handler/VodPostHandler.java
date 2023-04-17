@@ -62,7 +62,6 @@ public class VodPostHandler {
         long channelId = 1; //임시로 구현
         return request.multipartData()
                 //video 필드 체크
-                .log()
                 .filter(multiMap -> multiMap.containsKey("video"))
                 .flatMap(multiMap -> Mono.just(multiMap.get("video"))
                         .flatMap(parts -> {

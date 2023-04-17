@@ -17,7 +17,8 @@ public class VodRouter {
     @Bean
     public RouterFunction<ServerResponse> routerExample() {
         return RouterFunctions.route()
-                .POST("/media", vodHandler::postVideo)
+                .POST("/media",
+                        vodHandler::postVideo)
                 .build();
     }
 }

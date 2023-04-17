@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
@@ -84,7 +85,11 @@ public class ErrorResponse extends ResponseDto {
             BusinessException businessException = (BusinessException) e;
             return ServerResponse.status(businessException.getErrorCode().getStatus())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(new ErrorResponse(businessException.getErrorCode(),businessException.getFieldErrors()));
+                    .bodyValue(new ErrorResponse(businessException.getErrorCode(), businessException.getFieldErrors()));
+        } else if (e instanceof CannotCreateTransactionException) {
+            //do something
+            log.error(e.getMessage());
+            return ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR);
         } else if (e instanceof Exception) {
             //아직 처리되지 않은 Exception 이 도착하는 곳
             log.debug("An unhandled exception has occurred -> {} : {}",e.getClass().getName(),e.getMessage());
