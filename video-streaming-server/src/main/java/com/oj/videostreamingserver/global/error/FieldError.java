@@ -24,8 +24,8 @@ public class FieldError {
         this.reason = reason;
     }
 
-    public static Mono<FieldError> of(String field, String value, String reason) {
-        return Mono.just(new FieldError(field,value,reason));
+    public static List<FieldError> of(String field, String value, String reason) {
+        return List.of(new FieldError(field,value,reason));
     }
 
 }
