@@ -3,6 +3,7 @@ package com.oj.videostreamingserver.domain.vod.handler;
 import com.oj.videostreamingserver.domain.vod.domain.DraftVideo;
 import com.oj.videostreamingserver.domain.vod.dto.OriginalVideoPostResponse;
 import com.oj.videostreamingserver.domain.vod.repository.DraftVideoRepository;
+import com.oj.videostreamingserver.domain.vod.service.FileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,21 +53,19 @@ class VodPostHandlerTest {
     private DraftVideoRepository draftVideoRepository;
 
     @Mock
-    private WebTestClient.ResponseSpec responseSpec;
+    private FileService fileService;
+
 
     private VodPostHandler vodPostHandler;
 
 
     @BeforeEach
     private void initSpyVodPostHandler() throws NoSuchMethodException {
-        draftVideoRepository = mock(DraftVideoRepository.class);
         transactionalOperator = mock(TransactionalOperator.class);
-        VodPostHandler handler = new VodPostHandler(transactionalOperator,draftVideoRepository);
-        ReflectionTestUtils.setField(handler,"MEDIA_VOLUME_ROOT","app/media",String.class);
-        //모든 메서드가 접근 가능하도록 바꿈 - 테스트 이기 때문에
-        vodPostHandler = spy(handler);
-
-
+        fileService = mock(FileService.class);
+        draftVideoRepository = mock(DraftVideoRepository.class);
+        vodPostHandler = new VodPostHandler(transactionalOperator,fileService,draftVideoRepository);
+        ReflectionTestUtils.setField(vodPostHandler,"MEDIA_VOLUME_ROOT","app/media",String.class);
     }
 
     //왜캐 복잡한겨 ㅠㅠ
@@ -74,10 +73,8 @@ class VodPostHandlerTest {
     @DisplayName("원본 비디오 포스팅 API 테스트 - 요청 성공")
     public void postVideoTest() throws IOException {
         // given
-        byte[] fileContent = new byte[] { 0x00, 0x01, 0x02, 0x03 };
         DraftVideo draftVideo = new DraftVideo("/test/file/path.mp4",1L);
         ReflectionTestUtils.setField(draftVideo,"id",1L);
-
 
         // multipart body
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -87,15 +84,14 @@ class VodPostHandlerTest {
 
 
         //mock
-        doReturn(Mono.just(draftVideo))
-                .when(vodPostHandler).saveToLocalDraftPath(any(FilePart.class),any(Long.class));
+        when(fileService.saveVideoToDraft(any(FilePart.class))).thenReturn(Mono.just(new File("/test/fake/video.mp4")));
+        when(draftVideoRepository.save(any(DraftVideo.class))).thenReturn(Mono.just(draftVideo));
+        when(transactionalOperator.transactional(any(Mono.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         WebTestClient client = WebTestClient.bindToRouterFunction(RouterFunctions.route()
                 .POST("/media", request -> vodPostHandler.postVideo(request)).build()
         ).build();
 
-        //mock fake transactional
-        when(transactionalOperator.transactional(any(Mono.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
 
         //when
