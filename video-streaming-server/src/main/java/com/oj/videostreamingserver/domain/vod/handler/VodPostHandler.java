@@ -5,6 +5,7 @@ import com.oj.videostreamingserver.domain.vod.dto.OriginalVideoPostResponse;
 import com.oj.videostreamingserver.domain.vod.repository.DraftVideoRepository;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
 import com.oj.videostreamingserver.global.error.ErrorResponse;
+import com.oj.videostreamingserver.global.error.exception.DbException;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.error.exception.LocalFileException;
 import com.oj.videostreamingserver.global.util.FileUtils;
@@ -26,6 +27,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -64,39 +66,53 @@ public class VodPostHandler {
      */
     public Mono<ServerResponse> postVideo(ServerRequest request) {
         long channelId = 1; //임시로 구현
-        return request.multipartData()
-                //video 필드 체크
-                .filter(multiMap -> multiMap.containsKey("video"))
-                .flatMap(multiMap -> {
-                    List<Part> video = multiMap.get("video");
-                    if (video.size() != 1){
-                        return Mono.empty();
-                    }
-                    return Mono.just(video.get(0));
-                })
-                .ofType(FilePart.class)//Mono<FilePart>
-                .switchIfEmpty(Mono.error(new InvalidInputValueException("video", "", "Exactly one video file is required")))
-                //content-type 헤더 체크
-                .filter(fp -> fp.headers().containsKey("Content-Type") && fp.headers().getFirst("Content-Type").startsWith("video/"))
-                .switchIfEmpty(Mono.error(new InvalidInputValueException("Content-Type","","Content-Type that start with video/ is required")))
+        return this.checkRequestValidation(request)//Mono<FilePart>
                 //메인 로직
                 .as(transactionalOperator::transactional)
                 .flatMap(fileService::saveVideoToDraft) //Mono<DraftVideo>
-                .flatMap(file -> draftVideoRepository.save(new DraftVideo(file.getAbsolutePath(),channelId))
-                        .onErrorResume(e -> {
-                            //DB 저장중 예외 발생시 로컬 파일 롤백 처리
-                            file.delete(); // best effort
-                            return Mono.error(e);
-                        }))
+                .flatMap(file -> {
+                    try {
+                        return draftVideoRepository.save(new DraftVideo(file.getAbsolutePath(), channelId));
+                    } catch (Exception e) {
+                        //DB 저장중 예외 발생시 로컬 파일 롤백 처리
+                        file.delete();
+                        return Mono.error(new DbException(e));
+                    }})
                 //응답 처리
                 .flatMap(draftVideo ->
-                                ServerResponse
-                                        .ok()
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .bodyValue(new OriginalVideoPostResponse(draftVideo.getId()))
+                        ServerResponse
+                                .ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(new OriginalVideoPostResponse(draftVideo.getId()))
                 )
                 //예외 처리
                 .onErrorResume(ErrorResponse::commonExceptionHandler);
+    }
+
+    /**
+     * check client request is valid and extract FilePart from Multipart form data
+     * @param serverRequest client request
+     * @return return Mono<FilePart> if client Request is valid, <br>
+     * return Mono.error({@link InvalidInputValueException}) if request is not valid.
+     */
+    protected Mono<FilePart> checkRequestValidation(ServerRequest serverRequest){
+        return Mono.defer(() -> Mono.just(serverRequest)
+                //content -type 체크
+                .filter(request -> MediaType.MULTIPART_FORM_DATA.isCompatibleWith(
+                        request.headers().contentType().orElse(null)))
+                .switchIfEmpty(Mono.error(()->
+                        new InvalidInputValueException(
+                                "Content-Type Header","","Content-Type Must Be multipart/form-data")))
+                .flatMap(request -> Mono.defer(request::multipartData))//Mono<MultiValueMap>
+                //video 필드 체크
+                .filter(multiMap -> multiMap.getOrDefault("video", Collections.emptyList()).size() == 1)
+                .flatMap(multimap -> Mono.just(multimap.getFirst("video")))
+                .ofType(FilePart.class)//Mono<FilePart>
+                .switchIfEmpty(Mono.error(new InvalidInputValueException("video", "", "Exactly one video file is required")))
+                //multipart content-type 헤더 체크
+                .filter(fp -> fp.headers().containsKey("Content-Type") && fp.headers().getFirst("Content-Type").startsWith("video/"))
+                .switchIfEmpty(Mono.error(new InvalidInputValueException("Multipart Content-Type","","Content-Type that start with video/ is required")))
+        );
     }
 
 
