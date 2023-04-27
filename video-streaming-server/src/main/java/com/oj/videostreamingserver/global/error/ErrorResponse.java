@@ -1,6 +1,5 @@
 package com.oj.videostreamingserver.global.error;
 
-import com.oj.videostreamingserver.global.dto.ResponseDto;
 import com.oj.videostreamingserver.global.error.exception.BusinessException;
 import com.oj.videostreamingserver.global.error.exception.KernelProcessException;
 import com.oj.videostreamingserver.global.error.exception.LocalSystemException;
