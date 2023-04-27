@@ -6,19 +6,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 
 /**
- * 로컬 파일 시스템 관련해서 생긴 예외들을 추상화하여 감싸는 예외
+ * 로컬 파일 시스템 관련해서 생긴 예외들을 추상화하여 감싸는 예외 <br>
+ * 추후 원인 분석을 위해 로깅됩니다.
  */
 @Getter
-public class LocalFileException extends RuntimeException{
+public class LocalSystemException extends RuntimeException{
 
     private final HttpStatus expectedResponseStatus;
     private final List<String> pathList;
+    @Nullable
     private final Throwable cause;
     private final Class<?> caller;
 
@@ -29,7 +29,7 @@ public class LocalFileException extends RuntimeException{
      * @param cause 이 예외가 감싸고 있는 원본 예외
      */
     @Builder
-    public LocalFileException(@Nullable HttpStatus expectedResponseStatus, @NonNull List<String> pathList, Throwable cause) {
+    public LocalSystemException(@Nullable HttpStatus expectedResponseStatus, @NonNull List<String> pathList, @Nullable Throwable cause) {
         this.expectedResponseStatus = (expectedResponseStatus != null) ? expectedResponseStatus : HttpStatus.INTERNAL_SERVER_ERROR;
         this.pathList = pathList;
         this.cause = cause;

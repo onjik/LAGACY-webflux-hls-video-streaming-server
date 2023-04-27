@@ -6,19 +6,19 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OriginalVideoPostResponse {
+public class VideoPostResponse {
     //encrypted tmp file path
-    private Long tempId;
+    private Long videoId;
 
-    public OriginalVideoPostResponse(Long tempId) {
-        this.tempId = tempId;
+    public VideoPostResponse(Long tempId) {
+        this.videoId = tempId;
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof OriginalVideoPostResponse)){
+        if (!(obj instanceof VideoPostResponse)){
             return false;
         }
-        return ((OriginalVideoPostResponse) obj).tempId == this.tempId;
+        return ((VideoPostResponse) obj).videoId == this.videoId;
     }
 }

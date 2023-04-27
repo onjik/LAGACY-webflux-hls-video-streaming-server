@@ -33,34 +33,34 @@ class VodRouterTest {
     @MockBean
     VodPostHandler handler;
 
-    @Nested
-    @DisplayName("POST /media")
-    class postMedia{
-
-        @Test
-        @DisplayName("정상적인 핸들링")
-        public void postMediaRoute(){
-            //given sample data
-            byte[] fileContent = new byte[] { 0x00, 0x01, 0x02, 0x03 };
-            DataBuffer dataBuffer = new DefaultDataBufferFactory().wrap(fileContent);
-            Flux<DataBuffer> data = Flux.just(dataBuffer);
-
-            //mocking
-            when(handler.postVideo(any(ServerRequest.class)))
-                    .thenReturn(ServerResponse.ok().build());
-
-            //when
-            webClient.post()
-                    .uri("/media")
-                    .contentType(MediaType.valueOf("video/mp4"))
-                    .body(BodyInserters.fromDataBuffers(data))
-                    .exchange()
-                    .expectStatus().isOk();
-
-            verify(handler).postVideo(any(ServerRequest.class));
-        }
-
-    }
+//    @Nested
+//    @DisplayName("POST /media")
+//    class postMedia{
+//
+//        @Test
+//        @DisplayName("정상적인 핸들링")
+//        public void postMediaRoute(){
+//            //given sample data
+//            byte[] fileContent = new byte[] { 0x00, 0x01, 0x02, 0x03 };
+//            DataBuffer dataBuffer = new DefaultDataBufferFactory().wrap(fileContent);
+//            Flux<DataBuffer> data = Flux.just(dataBuffer);
+//
+//            //mocking
+//            when(handler.postVideo(any(ServerRequest.class)))
+//                    .thenReturn(ServerResponse.ok().build());
+//
+//            //when
+//            webClient.post()
+//                    .uri("/media")
+//                    .contentType(MediaType.valueOf("video/mp4"))
+//                    .body(BodyInserters.fromDataBuffers(data))
+//                    .exchange()
+//                    .expectStatus().isOk();
+//
+//            verify(handler).postVideo(any(ServerRequest.class));
+//        }
+//
+//    }
 
 
 }

@@ -1,7 +1,13 @@
 package com.oj.videostreamingserver.global.util;
 
-public class FileUtils {
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
+
+public class FileUtil {
 
     /**
      *
@@ -17,4 +23,9 @@ public class FileUtils {
             throw new IllegalArgumentException("filename ( " + fileName + " ) has no extension");
         }
     }
+
+    public static Path rootVodPathOf(String mediaRoot,UUID videoId){
+        return Paths.get(mediaRoot,"vod",videoId.toString()).toAbsolutePath();
+    }
+
 }

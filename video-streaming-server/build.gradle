@@ -29,6 +29,8 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
+	// https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-validation
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
 	// https://mvnrepository.com/artifact/net.bramp.ffmpeg/ffmpeg
 	implementation 'net.bramp.ffmpeg:ffmpeg:0.6.2'

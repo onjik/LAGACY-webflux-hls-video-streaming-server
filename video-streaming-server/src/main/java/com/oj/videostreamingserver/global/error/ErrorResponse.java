@@ -2,13 +2,14 @@ package com.oj.videostreamingserver.global.error;
 
 import com.oj.videostreamingserver.global.dto.ResponseDto;
 import com.oj.videostreamingserver.global.error.exception.BusinessException;
-import com.oj.videostreamingserver.global.error.exception.DbException;
-import com.oj.videostreamingserver.global.error.exception.LocalFileException;
+import com.oj.videostreamingserver.global.error.exception.KernelProcessException;
+import com.oj.videostreamingserver.global.error.exception.LocalSystemException;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -62,8 +63,9 @@ public class ErrorResponse extends ResponseDto {
 
     public static Mono<ServerResponse> commonExceptionHandler(Throwable e){
         //분기적 예외 처리
-        if (e instanceof DbException){
-            if (e.getCause() instanceof DataIntegrityViolationException) {
+        //데이터베이스 관련 예외
+        if (e instanceof DataAccessException) {
+            if (e instanceof DataIntegrityViolationException) {
                 // 데이터 무결성 발생 조건 체크
                 String message = e.getMessage().toUpperCase();
                 if (message.contains("FOREIGN")) { //외래키 관련 : 여기서는 채널 아이디
@@ -77,18 +79,35 @@ public class ErrorResponse extends ResponseDto {
                 return ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR);
             }
             //다른 DB 예외 처리
-        } else if (e instanceof LocalFileException) {
-            // 로컬 파일 상에서 문제가 생겻을 경우 생성
-            LocalFileException localFileException = (LocalFileException) e;
-            // 이것은 외부에 노출되면 안되는 로그입니다. 꼭 파일에 저장하세요
-            log.debug("An LocalFileException occurs -> \n" +
-                    "    pathList : {} \n" +
-                    "    cause : {} \n" +
-                    "    call from : {}",
-                    StringUtils.join(localFileException.getPathList(),", "),
-                    localFileException.getCause().getClass().getName(),
-                    localFileException.getCaller().getName());
-            return ServerResponse.status(localFileException.getExpectedResponseStatus()).build();
+
+        } else if (e instanceof LocalSystemException) { // 로컬 시스템 상에서 문제가 생겻을 경우 생성
+            if (e instanceof KernelProcessException){
+                //커널 처리 중 문제가 발생 했을 경우 생성
+                KernelProcessException kernelProcessException = (KernelProcessException) e;
+                //이것은 외부에 노출되면 안됩니다.
+                // 이것은 외부에 노출되면 안되는 로그입니다. 꼭 파일에 저장하세요
+                log.debug("An LocalFileException occurs -> \n" +
+                                "    kernelName : {} \n" +
+                                "    pathList : {} \n" +
+                                "    cause : {} \n" +
+                                "    call from : {}",
+                        kernelProcessException.getKernelName(),
+                        StringUtils.join(kernelProcessException.getPathList(), ", "),
+                        (kernelProcessException.getCause() != null) ? kernelProcessException.getCause().getClass().getName() : "",
+                        kernelProcessException.getCaller().getName());
+            } else {
+                // 로컬 파일 상에서 문제가 생겻을 경우 생성
+                LocalSystemException localSystemException = (LocalSystemException) e;
+                // 이것은 외부에 노출되면 안되는 로그입니다. 꼭 파일에 저장하세요
+                log.debug("An LocalFileException occurs -> \n" +
+                                "    pathList : {} \n" +
+                                "    cause : {} \n" +
+                                "    call from : {}",
+                        StringUtils.join(localSystemException.getPathList(), ", "),
+                        (localSystemException.getCause() != null) ? localSystemException.getCause().getClass().getName() : "",
+                        localSystemException.getCaller().getName());
+            }
+            return ServerResponse.status(((LocalSystemException)e).getExpectedResponseStatus()).build();
 
         } else if (e instanceof BusinessException) {
             BusinessException businessException = (BusinessException) e;
