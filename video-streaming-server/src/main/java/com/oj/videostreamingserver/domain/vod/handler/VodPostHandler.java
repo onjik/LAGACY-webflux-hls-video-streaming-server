@@ -7,16 +7,13 @@ import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.global.error.ErrorResponse;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.error.exception.LocalSystemException;
-import com.oj.videostreamingserver.global.util.FFmpegProcessUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFprobe;
-import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -42,14 +39,13 @@ public class VodPostHandler {
     //spring beans
     private final FFmpeg fFmpeg;
     private final FFprobe fFprobe;
-    private final FFmpegProcessUtil fFmpegProcessUtil;
 
     private final EncodingService encodingService;
     private final EncodingChannel encodingChannel;
 
-    private final TransactionalOperator transactionalOperator;
-
-    private final R2dbcEntityTemplate template;
+//    private final TransactionalOperator transactionalOperator;
+//
+//    private final R2dbcEntityTemplate template;
 
 
 

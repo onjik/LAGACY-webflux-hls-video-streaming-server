@@ -74,16 +74,5 @@ public class VodVideo {
     }
 
 
-    public static VodVideo createEntity(VodPostRequestBody dto, Long channelId){
-        Assert.notNull(dto.getVideoFile(),"비디오 파일은 필수 값입니다.");
-        Assert.notNull(channelId,"미디어 루트 경로는 필수 값입니다.");
-
-        UUID videoId = UUID.randomUUID();
-        return createEntity(videoId,
-                PathManager.VodPath.rootOf(videoId),
-                dto.getTitle(),
-                dto.getDescribe(),
-                channelId);
-    }
 
 }

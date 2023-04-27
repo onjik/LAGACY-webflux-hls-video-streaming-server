@@ -48,7 +48,7 @@ public class IndependentExecutor {
      * @throws IllegalArgumentException 만약 주어진 중계키가 등록이 안된 경우
      */
     public void executeAndBroadCast(ProcessBuilder processBuilder, EncodingChannel encodingChannel, String broadCastKey) throws IllegalArgumentException{
-        Assert.isTrue(encodingChannel.isRegistered(broadCastKey));
+        Assert.isTrue(encodingChannel.isRegistered(broadCastKey), "중계 키가 등록되지 않았습니다.");
         executor.submit(() -> {
             EncodingEvent event = encodingChannel.getEvent(broadCastKey);
             try {
