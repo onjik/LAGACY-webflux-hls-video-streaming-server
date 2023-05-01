@@ -42,6 +42,7 @@ public class PathManager {
         private static final String ORIGINAL_THUMBNAIL_NAME = "temp_thumbnail";
         private static final String THUMBNAIL = "thumbnail.jpg";
         private static final String ORIGINAL_VIDEO_NAME = "original";
+        private static final String MASTER_PLAYLIST_NAME = "master.m3u8";
         private static final String HLS = "hls";
         private static final String DASH = "dash";
 
@@ -63,10 +64,10 @@ public class PathManager {
             return rootOf(videoId).resolve(THUMBNAIL);
         }
 
-        public static Path tempThumbnailOf(UUID videoId,String filename) {
+        public static Path ogThumbnailOf(UUID videoId, String filename) {
             return rootOf(videoId).resolve(renameFile(filename,ORIGINAL_THUMBNAIL_NAME));
         }
-        public static Path tempThumbnailOf(UUID videoId) {
+        public static Path ogThumbnailOf(UUID videoId) {
             return rootOf(videoId).resolve(ORIGINAL_THUMBNAIL_NAME+".jpg");
         }
 
@@ -77,6 +78,10 @@ public class PathManager {
          */
         public static Path ogVideoOf(UUID videoId, String filename) {
             return rootOf(videoId).resolve(renameFile(filename, ORIGINAL_VIDEO_NAME));
+        }
+
+        public static Path masterPlaylistOf(UUID videoId) {
+            return rootOf(videoId).resolve(MASTER_PLAYLIST_NAME);
         }
 
 

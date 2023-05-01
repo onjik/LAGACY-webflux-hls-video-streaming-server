@@ -6,6 +6,7 @@ import org.springframework.util.Assert;
 import reactor.core.publisher.Sinks;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,15 +20,18 @@ import java.util.stream.Collectors;
 public class EncodingChannel {
     //static info
     public enum Type{VIDEO, THUMBNAIL} //작업의 타입
-    private final String KEY_DELIMITER = "!";
+    private final String KEY_DELIMITER = "#OF#";
     private final int MAX_QUEUE_SIZE = 1000;
 
 
     private final Queue<String> deleteQueue = new ConcurrentLinkedQueue<>();
     private final Map<String, EncodingEvent> encodingEvents = new ConcurrentHashMap<>();
 
-    private String keyResolver(UUID videoId, Type jobType){
-        return videoId.toString() + KEY_DELIMITER + jobType.toString();
+    public String keyResolver(UUID videoId, Type jobType){
+        return keyResolver(videoId.toString(), jobType);
+    }
+    public String keyResolver(String videoId, Type jobType){
+        return jobType.toString() + KEY_DELIMITER + videoId.toString();
     }
 
 
@@ -35,17 +39,54 @@ public class EncodingChannel {
         return encodingEvents.get(key);
     }
 
-    public String registerEvent(UUID videoId, Type jobType){
+    /**
+     * 중계 중인 싱크를 가져오는 메서드
+     * @param key 중계 키
+     * @return 인코딩 싱크, 만약 없는 key 면 null
+     */
+    public Optional<Sinks.Many<String>> getSink(String key){
+        EncodingEvent encodingEvent = encodingEvents.get(key);
+        if (encodingEvent != null){
+            return Optional.of(encodingEvent.getSink());
+        }
+        return Optional.empty();
+    }
+
+
+
+    //등록 관련 메서드
+
+    /**
+     * register new encoding event
+     * @param videoId video id
+     * @param jobType job type
+     * @return registered encoding event
+     * @throws IllegalArgumentException if there is already registered event
+     */
+    public String registerEvent(UUID videoId, Type jobType) throws IllegalArgumentException{
         return registerEvent(videoId, jobType, new EncodingEvent(Sinks.many().multicast().directBestEffort()));
     }
-    public String registerEvent(UUID videoId, Type jobType, EncodingEvent encodingEvent){
+
+    /**
+     * register new encoding event
+     * @param videoId video id
+     * @param jobType job type
+     * @param encodingEvent encoding event
+     * @return registered encoding event
+     * @throws IllegalArgumentException if there is already registered event
+     */
+    protected String registerEvent(UUID videoId, Type jobType, EncodingEvent encodingEvent) throws IllegalArgumentException{
         Assert.isTrue(!isRegistered(keyResolver(videoId,jobType)), "이미 등록된 이벤트입니다.");
         String key = keyResolver(videoId, jobType);
         encodingEvents.put(key,encodingEvent);
         return key;
     }
 
-    public void registerToDeleteQueue(String key){
+
+
+    // 삭제 관련 메서드
+
+    protected void registerToDeleteQueue(String key){
         if (encodingEvents.containsKey(key) && !deleteQueue.contains(key)){
             //삭제 큐에 추가
             deleteQueue.add(key);
@@ -68,7 +109,7 @@ public class EncodingChannel {
             //종료
         }
     }
-    public void removeEvent(String key){
+    protected void removeEvent(String key){
         if (encodingEvents.containsKey(key)){
             //맵에서 제거
             encodingEvents.remove(key);
@@ -92,6 +133,35 @@ public class EncodingChannel {
         return;
     }
 
+    //이벤트 종료 처리 관련 메서드
+
+    public synchronized void reportFinish(String key){
+        EncodingEvent encodingEvent = encodingEvents.get(key);
+        if (encodingEvent != null && (encodingEvent.getStatus() == EncodingEvent.Status.READY || encodingEvent.getStatus() == EncodingEvent.Status.RUNNING)){
+            encodingEvent.getSink().tryEmitComplete();
+            encodingEvents.remove(key);
+            registerToDeleteQueue(key);
+        }
+    }
+
+    //에러 발생 : error occurred
+    public synchronized void reportError(String key, Throwable throwable){
+        EncodingEvent encodingEvent = encodingEvents.get(key);
+        if (encodingEvent != null && (encodingEvent.getStatus() == EncodingEvent.Status.READY || encodingEvent.getStatus() == EncodingEvent.Status.RUNNING)){
+            encodingEvent.getSink().tryEmitError(throwable);
+            encodingEvent.getSink().tryEmitComplete();
+            encodingEvents.remove(key);
+            registerToDeleteQueue(key);
+        }
+    }
+
+    public void reportRunning(String key){
+        EncodingEvent encodingEvent = encodingEvents.get(key);
+        if (encodingEvent != null && encodingEvent.getStatus() == EncodingEvent.Status.READY){
+            encodingEvents.get(key).setStatus(EncodingEvent.Status.RUNNING);
+        }
+    }
+
     public boolean isRegistered(String key){
         return encodingEvents.containsKey(key);
     }
@@ -111,4 +181,5 @@ public class EncodingChannel {
         }
         return EncodingEvent.Status.FINISHED;
     }
+
 }

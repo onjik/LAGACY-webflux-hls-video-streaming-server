@@ -17,7 +17,7 @@ import java.util.List;
 public class LocalSystemException extends RuntimeException{
 
     private final HttpStatus expectedResponseStatus;
-    private final List<String> pathList;
+    private final List<String> problemInfo;
     @Nullable
     private final Throwable cause;
     private final Class<?> caller;
@@ -25,13 +25,13 @@ public class LocalSystemException extends RuntimeException{
     /**
      *
      * @param expectedResponseStatus 원하는 응답 상태코드, nullable, null 이면 InternalServerError 가 적용됩니다.
-     * @param pathList 예외가 발생한 것으로 예상되는 파일 경로, 이는 외부에 노출 시키지 않고, 내부에서 사용하거나, 파일에 남기는 로그에 사용됩니다.
+     * @param problemInfo 예외가 발생한 것으로 예상되는 파일 경로, 이는 외부에 노출 시키지 않고, 내부에서 사용하거나, 파일에 남기는 로그에 사용됩니다.
      * @param cause 이 예외가 감싸고 있는 원본 예외
      */
     @Builder
-    public LocalSystemException(@Nullable HttpStatus expectedResponseStatus, @NonNull List<String> pathList, @Nullable Throwable cause) {
+    public LocalSystemException(@Nullable HttpStatus expectedResponseStatus, @NonNull List<String> problemInfo, @Nullable Throwable cause) {
         this.expectedResponseStatus = (expectedResponseStatus != null) ? expectedResponseStatus : HttpStatus.INTERNAL_SERVER_ERROR;
-        this.pathList = pathList;
+        this.problemInfo = problemInfo;
         this.cause = cause;
         //추후 로그를 통해 개선하기 위해 이게 어디에서 호출되었는지 기록
         this.caller = Thread.currentThread().getStackTrace()[2].getClass();

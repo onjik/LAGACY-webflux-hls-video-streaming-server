@@ -5,6 +5,7 @@ server:
 logging:
   level:
     org.springframework.r2dbc.core: debug
+    root: debug
 # ffmpeg 커널 패스
 path:
   ffmpeg: "/opt/homebrew/bin/ffmpeg"

@@ -23,14 +23,13 @@ import java.util.List;
 @Getter
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ErrorResponse extends ResponseDto {
+public class ErrorResponse {
     private String message;
     private String status;
     private List<FieldError> errors;
     private String code;
 
     private ErrorResponse(ErrorCode code, List<FieldError> errors){
-        super(false);
         this.message = code.getMessage();
         this.status = code.getStatus().toString();
         this.errors = errors;
@@ -38,7 +37,6 @@ public class ErrorResponse extends ResponseDto {
     }
 
     private ErrorResponse(ErrorCode code){
-        super(false);
         this.message = code.getMessage();
         this.status = code.getStatus().toString();
         this.errors = new ArrayList<>(); //if errorsss is null, response empty list instead of null
@@ -91,7 +89,7 @@ public class ErrorResponse extends ResponseDto {
                                 "    cause : {} \n" +
                                 "    call from : {}",
                         kernelProcessException.getKernelName(),
-                        StringUtils.join(kernelProcessException.getPathList(), ", "),
+                        StringUtils.join(kernelProcessException.getProblemInfo(), ", "),
                         (kernelProcessException.getCause() != null) ? kernelProcessException.getCause().getClass().getName() : "",
                         kernelProcessException.getCaller().getName());
             } else {
@@ -102,7 +100,7 @@ public class ErrorResponse extends ResponseDto {
                                 "    pathList : {} \n" +
                                 "    cause : {} \n" +
                                 "    call from : {}",
-                        StringUtils.join(localSystemException.getPathList(), ", "),
+                        StringUtils.join(localSystemException.getProblemInfo(), ", "),
                         (localSystemException.getCause() != null) ? localSystemException.getCause().getClass().getName() : "",
                         localSystemException.getCaller().getName());
             }

@@ -1,16 +1,25 @@
 package com.oj.videostreamingserver.domain.vod.component;
 
 import com.oj.videostreamingserver.domain.vod.dto.EncodingEvent;
+import com.oj.videostreamingserver.global.error.exception.KernelProcessException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
+import reactor.core.publisher.Sinks;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.*;
 
 @Component
+@Slf4j
 public class IndependentExecutor {
     private ExecutorService executor;
 
@@ -49,33 +58,53 @@ public class IndependentExecutor {
      */
     public void executeAndBroadCast(ProcessBuilder processBuilder, EncodingChannel encodingChannel, String broadCastKey) throws IllegalArgumentException{
         Assert.isTrue(encodingChannel.isRegistered(broadCastKey), "중계 키가 등록되지 않았습니다.");
+        Assert.notNull(processBuilder, "processBuilder 는 null 일 수 없습니다.");
+        Assert.notNull(encodingChannel, "encodingChannel 은 null 일 수 없습니다.");
+        processBuilder.redirectErrorStream(true); //에러 스트림을 표준 출력으로 합침
+        //아래는 디버그용
+//        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        log.debug("processBuilder : {}", processBuilder.command());
+
         executor.submit(() -> {
-            EncodingEvent event = encodingChannel.getEvent(broadCastKey);
+            Process process = null;
+            encodingChannel.reportRunning(broadCastKey);
+            //프로세스 시작
             try {
-                Process process = processBuilder.start();
-                event.setStatus(EncodingEvent.Status.RUNNING); //작업 중으로 바꿈
+                process = processBuilder.start();
+            } catch (IOException e) {
+                encodingChannel.reportError(broadCastKey,e);
+                if (process != null) {
+                    process.destroy();
+                }
+                return;
+            }
+            //출력 부분
+            String line;
 
-                //커널의 출력 가져오기
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String line;
-
-                while (process.isAlive()){
-                    while ((line = reader.readLine()) != null){
-                        event.getSink().tryEmitNext(line); //중계
+            try (InputStream inputStream = process.getInputStream()){
+                Sinks.Many<String> sink = encodingChannel.getSink(broadCastKey).orElseThrow(() -> new IllegalArgumentException("중계 키가 등록되지 않았습니다."));
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                    //while 문 돌면서 output 출력 및 중계
+                    while (process.isAlive()) {
+                        while ((line = reader.readLine()) != null) {
+                            log.debug(line);
+                            sink.tryEmitNext(line); //중계
+                        }
+                    }
+                    //끝났으면
+                    if (process.exitValue() == 0) {
+                        //정상적인 종료
+                        log.debug("process {} --> exit with 0",broadCastKey);
+                        encodingChannel.reportFinish(broadCastKey);
+                    } else {
+                        log.error("process {} --> exit with {}",broadCastKey,process.exitValue());
+                        throw new KernelProcessException("ffmpeg", List.of("kernal exit with " + process.exitValue()),null);
                     }
                 }
-                //종료
-                if (process.waitFor() == 0) {
-                    event.setStatus(EncodingEvent.Status.FINISHED);
-                } else {
-                    event.setStatus(EncodingEvent.Status.ERROR);
-                }
-                encodingChannel.registerToDeleteQueue(broadCastKey);
-
             } catch (Throwable e) {
-                event.setStatus(EncodingEvent.Status.ERROR);
-                encodingChannel.registerToDeleteQueue(broadCastKey);
-
+                encodingChannel.reportError(broadCastKey,e);
+            } finally {
+                process.destroy();
             }
             //정상적이던 아니던, 종료
         });

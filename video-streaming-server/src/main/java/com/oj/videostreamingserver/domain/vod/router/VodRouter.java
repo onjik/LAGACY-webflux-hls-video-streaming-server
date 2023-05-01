@@ -1,6 +1,6 @@
 package com.oj.videostreamingserver.domain.vod.router;
 
-import com.oj.videostreamingserver.domain.vod.handler.VodPostHandler;
+import com.oj.videostreamingserver.domain.vod.handler.VodEncodingHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,12 +12,13 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 @RequiredArgsConstructor
 public class VodRouter {
 
-    private final VodPostHandler vodHandler;
+    private final VodEncodingHandler vodHandler;
 
     @Bean
     public RouterFunction<ServerResponse> routerExample() {
         return RouterFunctions.route()
-                .POST("/media",vodHandler::videoInitPost)
+                .POST("/medias/encoding",vodHandler::videoInitPost)
+                .GET("/medias/encoding/{videoId}/status",vodHandler::broadCastEncodingStatus)
                 .build();
     }
 }

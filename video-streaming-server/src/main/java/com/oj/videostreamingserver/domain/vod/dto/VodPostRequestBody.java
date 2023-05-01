@@ -55,33 +55,33 @@ public class VodPostRequestBody {
     }
 
     /**
-     * 서버 요청을 받아서 Mono<VodPostRequestBody>로 변환하는 메서드
+     * 서버 요청을 받아서 Mono<VodPostRequestBody>로 변환하는 메서드 <br>
+     * 만약 video가 없으면, {@link InvalidInputValueException}을 {@link Mono}에 담아서 리턴한다. <br>
      * @param request 서버 요청
      * @return Mono<VodPostRequestBody>
      */
     public static Mono<VodPostRequestBody> monoFromServerRequest(ServerRequest request){
         return request.multipartData()
-                //필드 체크 - video 필드가 있는지 확인
-                .filter(multiValueMap -> multiValueMap.containsKey("video"))
-                .switchIfEmpty(reactor.core.publisher.Mono.error(new InvalidInputValueException("video field","null","there is no video field")))
+                //필수 필드 체크 - video 필드와 videoId 필드가 있는지 확인
+                .filter(multiValueMap -> multiValueMap.getFirst("video") instanceof FilePart)
+                .filter(multiValueMap -> multiValueMap.getFirst("videoId") instanceof FormFieldPart)
+                .switchIfEmpty(Mono.error(new InvalidInputValueException("mandatory field","","video and videoId field is mandatory, but not exist or type unmatched(needed = FilePart)")))
+                //optional 필드 체크 - thumbnail 필드가 있는지 확인
+                //thumbnail 필드가 있으면 FilePart 인지 확인
+                .filter(multiValueMap -> !multiValueMap.containsKey("thumbnail") || multiValueMap.getFirst("thumbnail") instanceof FilePart)
+                .switchIfEmpty(Mono.error(new InvalidInputValueException("optional field","","thumbnail field exist, but type unmatched (needed = FilePart)")))
                 //dto 생성
                 .flatMap(multiValueMap -> {
-                    VodPostRequestBodyBuilder builder = VodPostRequestBody.builder();
-                    //video 필드가 FilePart인지 확인
-                    checkType(FilePart.class,multiValueMap.getFirst("video"));
-                    FilePart video = (FilePart) multiValueMap.getFirst("video");
-                    builder.videoFile(video);
+                    //가독성을 위해 변수로 선언
 
-                    //thumbnail 필드
-                    if (multiValueMap.containsKey("thumbnail")) {
-                        //thumbnail 필드가 FilePart인지 확인
-                        checkType(FilePart.class, multiValueMap.getFirst("thumbnail"));
-                        builder.thumbnail((FilePart) multiValueMap.getFirst("thumbnail"));
-                    } else {
-                        builder.thumbnail(null);
-                    }
+                    //mandatory field
+                    FilePart videoFile = (FilePart) multiValueMap.getFirst("video");
+                    FormFieldPart videoIdField = (FormFieldPart) multiValueMap.getFirst("videoId");
+                    UUID videoId = UUID.fromString(videoIdField.value());
+                    //optional field
+                    FilePart thumbnail = (FilePart) multiValueMap.getFirst("thumbnail");
 
-                    return Mono.just(builder.build());
+                    return Mono.just(new VodPostRequestBody(videoFile, thumbnail, videoId));
                 });
     }
 
