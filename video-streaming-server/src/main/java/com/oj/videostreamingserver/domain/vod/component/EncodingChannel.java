@@ -35,9 +35,7 @@ public class EncodingChannel {
     }
 
 
-    public EncodingEvent getEvent(String key) {
-        return encodingEvents.get(key);
-    }
+
 
     /**
      * 중계 중인 싱크를 가져오는 메서드
@@ -54,6 +52,8 @@ public class EncodingChannel {
 
 
 
+
+
     //등록 관련 메서드
 
     /**
@@ -64,74 +64,13 @@ public class EncodingChannel {
      * @throws IllegalArgumentException if there is already registered event
      */
     public String registerEvent(UUID videoId, Type jobType) throws IllegalArgumentException{
-        return registerEvent(videoId, jobType, new EncodingEvent(Sinks.many().multicast().directBestEffort()));
-    }
-
-    /**
-     * register new encoding event
-     * @param videoId video id
-     * @param jobType job type
-     * @param encodingEvent encoding event
-     * @return registered encoding event
-     * @throws IllegalArgumentException if there is already registered event
-     */
-    protected String registerEvent(UUID videoId, Type jobType, EncodingEvent encodingEvent) throws IllegalArgumentException{
         Assert.isTrue(!isRegistered(keyResolver(videoId,jobType)), "이미 등록된 이벤트입니다.");
         String key = keyResolver(videoId, jobType);
+        EncodingEvent encodingEvent = new EncodingEvent(Sinks.many().multicast().directBestEffort());
         encodingEvents.put(key,encodingEvent);
         return key;
     }
 
-
-
-    // 삭제 관련 메서드
-
-    protected void registerToDeleteQueue(String key){
-        if (encodingEvents.containsKey(key) && !deleteQueue.contains(key)){
-            //삭제 큐에 추가
-            deleteQueue.add(key);
-
-            //만약 삭제 큐가 최대 크기를 넘어가면 오래된 것 부터 60%만 삭제
-            if (deleteQueue.size() > MAX_QUEUE_SIZE) {
-                //동시성 처리
-                synchronized (this) {
-                    if (deleteQueue.size() > MAX_QUEUE_SIZE) {
-                        //삭제 큐가 최대 크기를 넘어가면 오래된 것 부터 60%만 삭제
-                        int deleteCount = (int) (MAX_QUEUE_SIZE * 0.6);
-                        String deleteKey;
-                        for (int i = 0; i < deleteCount; i++) {
-                            deleteKey = deleteQueue.poll();
-                            encodingEvents.remove(deleteKey); //map에서 제거
-                        }
-                    }
-                }
-            }
-            //종료
-        }
-    }
-    protected void removeEvent(String key){
-        if (encodingEvents.containsKey(key)){
-            //맵에서 제거
-            encodingEvents.remove(key);
-            //삭제 큐에 추가
-            deleteQueue.add(key);
-
-            if (deleteQueue.size() > MAX_QUEUE_SIZE) {
-                //cleanup bot
-                synchronized (this) {
-                    if (deleteQueue.size() > MAX_QUEUE_SIZE) {
-                        //삭제 큐가 최대 크기를 넘어가면 오래된 것 부터 60%만 삭제
-                        int deleteCount = (int) (MAX_QUEUE_SIZE * 0.6);
-                        for (int i = 0; i < deleteCount; i++) {
-                            deleteQueue.poll();
-                        }
-                    }
-                }
-            }
-
-        }
-        return;
-    }
 
     //이벤트 종료 처리 관련 메서드
 
@@ -166,20 +105,54 @@ public class EncodingChannel {
         return encodingEvents.containsKey(key);
     }
 
-    public boolean isFinished(UUID videoId, Type jobType){
-        EncodingEvent encodingEvent = encodingEvents.get(keyResolver(videoId, jobType));
+    /**
+     * get status of encoding event
+     * @param key encoding event key
+     * @return status of encoding event
+     * @throws IllegalArgumentException if there is no event
+     */
+    public EncodingEvent.Status getStatus(String key) throws IllegalArgumentException{
+        EncodingEvent encodingEvent = encodingEvents.get(key);
         if (encodingEvent != null){
-            return encodingEvents.get(keyResolver(videoId, jobType)).getStatus() == EncodingEvent.Status.FINISHED;
+            return encodingEvents.get(key).getStatus();
+        } else {
+            //deleteQueue에 있으면
+            if (deleteQueue.contains(key)){
+                return EncodingEvent.Status.FINISHED;
+            } else {
+                throw new IllegalArgumentException("존재하지 않는 이벤트입니다.");
+            }
         }
-        return true;
     }
 
-    public EncodingEvent.Status getStatus(UUID videoId, Type jobType){
-        EncodingEvent encodingEvent = encodingEvents.get(keyResolver(videoId, jobType));
-        if (encodingEvent != null){
-            return encodingEvents.get(keyResolver(videoId, jobType)).getStatus();
-        }
-        return EncodingEvent.Status.FINISHED;
-    }
 
+
+
+
+
+    // 삭제 관련 메서드
+
+    protected void registerToDeleteQueue(String key){
+        if (encodingEvents.containsKey(key) && !deleteQueue.contains(key)){
+            //삭제 큐에 추가
+            deleteQueue.add(key);
+
+            //만약 삭제 큐가 최대 크기를 넘어가면 오래된 것 부터 60%만 삭제
+            if (deleteQueue.size() > MAX_QUEUE_SIZE) {
+                //동시성 처리
+                synchronized (this) {
+                    if (deleteQueue.size() > MAX_QUEUE_SIZE) {
+                        //삭제 큐가 최대 크기를 넘어가면 오래된 것 부터 60%만 삭제
+                        int deleteCount = (int) (MAX_QUEUE_SIZE * 0.6);
+                        String deleteKey;
+                        for (int i = 0; i < deleteCount; i++) {
+                            deleteKey = deleteQueue.poll();
+                            encodingEvents.remove(deleteKey); //map에서 제거
+                        }
+                    }
+                }
+            }
+            //종료
+        }
+    }
 }

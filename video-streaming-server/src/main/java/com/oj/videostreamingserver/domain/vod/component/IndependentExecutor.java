@@ -71,6 +71,7 @@ public class IndependentExecutor {
             //프로세스 시작
             try {
                 process = processBuilder.start();
+                encodingChannel.reportRunning(broadCastKey);
             } catch (IOException e) {
                 encodingChannel.reportError(broadCastKey,e);
                 if (process != null) {

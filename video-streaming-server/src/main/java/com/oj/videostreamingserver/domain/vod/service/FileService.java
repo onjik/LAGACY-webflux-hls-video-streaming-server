@@ -18,6 +18,7 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
+import java.util.List;
 
 @Service
 public class FileService {
@@ -35,13 +36,20 @@ public class FileService {
                 .onErrorResume(IllegalStateException.class, e -> Mono.error(new InvalidInputValueException("videoField","","파일이 아닙니다.")));
     }
 
-    public Mono<Void> deleteFile(Path filePath){
+    public Mono<Void> deleteDirectory(Path filePath){
         File file = filePath.toFile();
         return Mono.<Void>fromCallable(() -> {
             if(file.exists()){
-                file.delete();
+                if (file.delete()){
+                    return null;
+                } else {
+                    //파일이 삭제가 안됬을 경우 http status 500
+                    throw new LocalSystemException(HttpStatus.INTERNAL_SERVER_ERROR, List.of(file.getAbsolutePath()), null);
+                }
+            } else {
+                //파일이 존재하지 않을 경우 http status 404
+                throw new LocalSystemException(HttpStatus.NOT_FOUND, List.of(file.getAbsolutePath()), null);
             }
-            return null;
         }).subscribeOn(Schedulers.boundedElastic());
     }
 }

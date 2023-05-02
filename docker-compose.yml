@@ -1,0 +1,50 @@
+version: "1" # 버전 지정
+
+services: # 컨테이너 설정
+#  api-server: # 내부적으로 여기 접근할 때는 api-server:8000
+#    container_name: api-server
+#    build: ./api-server
+#    ports:
+#      - 8000:8000 # 로컬 용으로 8000 포트 개방
+#      - 12341:12341 # 디버그용
+
+  ###################################
+  #### Media Server
+  ###################################
+  media-server: # 내부적으로 여기 접근할때는 media-server:9000
+    container_name: media-server
+    build: ./video-streaming-server
+    volumes:
+      - ./app/media:/app/media
+    ports:
+      - 9000:9000 # 로컬용으로 9000번 포트 개방
+      - 12342:12342 # 디버그용
+
+  # https://mycup.tistory.com/382
+  ###################################
+  #### DB Mysql
+  ###################################
+  db:
+    image: mysql
+    container_name: db-mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --range_optimizer_max_mem_size=16777216
+    restart: always # 다운시 항상 재시작
+    environment:
+      MYSQL_ROOT_PASSWORD: qwer1234
+      TZ: Asia/Seoul
+    volumes:
+      # 설치 주소
+      - .app/mysql/db:/var/lib/mysql
+      # 아래 주소의 sql 문을 알파벳 순서대로 실행한다.
+      - .app/mysql/init:/docker-entrypoint-initdb.d
+    ports: # 3306 포트 외부에 개방 : 로컬이므로
+      - 3306:3306
+#  adminer: # DB 간단 접근용 sql 툴
+#    image: adminer
+#    restart: always
+#    ports:
+#      - 8080:8080

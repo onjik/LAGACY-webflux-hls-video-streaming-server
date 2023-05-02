@@ -1,5 +1,19 @@
 server:
-  port: 8080
+  port: 9000
+
+# 추가 설정 - R2DBC에서 Database로 나가는 쿼리를 보고 싶으면 아래처럼 로깅레벨을 설정해야 함
+logging:
+  level:
+    org.springframework.r2dbc.core: debug
+    root: info
+# ffmpeg 커널 패스
 path:
-  ffmpeg: /usr/bin/ffmpeg
-  ffprobe: /usr/bin/ffmpeg
+  ffmpeg: "ffmpeg"
+  ffprobe: "ffprobe"
+
+volume:
+  # 시크릿 파일 패스 prefix "file:", "http:", "classpath:"
+  # https://docs.spring.io/spring-framework/docs/3.0.0.M4/reference/html/ch04s04.html
+  secret: "classpath:secret-dev.yml"
+  # root dir 부터 시작 ex) app/media
+  media: "app/media"

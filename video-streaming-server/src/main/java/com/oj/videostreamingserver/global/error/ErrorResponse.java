@@ -58,7 +58,7 @@ public class ErrorResponse {
 
 
 
-    public static Mono<ServerResponse> commonExceptionHandler(Throwable e){
+    public static Mono<ServerResponse> globalExceptionHandler(Throwable e){
         //분기적 예외 처리
         //데이터베이스 관련 예외
         if (e instanceof DataAccessException) {

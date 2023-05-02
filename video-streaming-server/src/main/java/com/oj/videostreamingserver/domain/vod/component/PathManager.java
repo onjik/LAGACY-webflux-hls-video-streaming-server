@@ -38,7 +38,7 @@ public class PathManager {
 
 
     public static class VodPath {
-        private static final String VOD = "vod";
+        private static final String VOD = "vods";
         private static final String ORIGINAL_THUMBNAIL_NAME = "temp_thumbnail";
         private static final String THUMBNAIL = "thumbnail.jpg";
         private static final String ORIGINAL_VIDEO_NAME = "original";

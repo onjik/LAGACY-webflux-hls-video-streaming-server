@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 9000
 
 # 추가 설정 - R2DBC에서 Database로 나가는 쿼리를 보고 싶으면 아래처럼 로깅레벨을 설정해야 함
 logging:
@@ -8,8 +8,8 @@ logging:
     root: debug
 # ffmpeg 커널 패스
 path:
-  ffmpeg: "/opt/homebrew/bin/ffmpeg"
-  ffprobe: "/opt/homebrew/bin/ffprobe"
+  ffmpeg: "ffmpeg"
+  ffprobe: "ffprobe"
 
 volume:
   # 시크릿 파일 패스 prefix "file:", "http:", "classpath:"

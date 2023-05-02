@@ -2,6 +2,7 @@ package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.dto.EncodingEvent;
 import com.oj.videostreamingserver.domain.vod.dto.EncodingRequestForm;
 import com.oj.videostreamingserver.domain.vod.dto.VideoPostResponse;
 import com.oj.videostreamingserver.domain.vod.dto.VodPostRequestBody;
@@ -9,6 +10,7 @@ import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
 import com.oj.videostreamingserver.global.error.ErrorResponse;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
+import com.oj.videostreamingserver.global.error.exception.LocalSystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -105,27 +107,39 @@ public class VodEncodingHandler {
                             .then(Mono.just(encodingRequest.getVideoId()));
                 })
                 //정상적인 응답 작성
-                .flatMap(videoId -> ServerResponse.status(HttpStatus.OK).bodyValue(new VideoPostResponse(videoId.toString())))
-                //예외 처리
-                .onErrorResume(ErrorResponse::commonExceptionHandler);
+                .flatMap(videoId -> ServerResponse.status(HttpStatus.OK).bodyValue(new VideoPostResponse(videoId.toString())));
     }
 
 
     public Mono<ServerResponse> broadCastEncodingStatus(ServerRequest request){
         String videoId = request.pathVariable("videoId");
-        Optional<Sinks.Many<String>> optionalMany = encodingChannel.getSink(videoId);
-        return Mono.just(request)
-                .filter(serverRequest -> !encodingChannel.isRegistered(videoId))
-                .switchIfEmpty(Mono.error(new InvalidInputValueException("videoId",videoId,"not registered videoId")))
-                .flatMap(serverRequest -> {
-                    String broadKey = encodingChannel.keyResolver(videoId, EncodingChannel.Type.VIDEO);
-                    Sinks.Many<String> sink = encodingChannel.getSink(broadKey).orElseThrow(() -> new InvalidInputValueException("videoId",videoId,"not registered videoId"));
-                    return ServerResponse.ok().contentType(MediaType.TEXT_EVENT_STREAM).body(sink.asFlux(), String.class);
+        return Mono.just(encodingChannel.keyResolver(videoId, EncodingChannel.Type.VIDEO))
+                .flatMap(key -> {
+                    if (encodingChannel.getStatus(key).equals(EncodingEvent.Status.RUNNING)){
+                        Sinks.Many<String> sink = encodingChannel.getSink(key).orElseThrow(() -> new InvalidInputValueException("videoId",videoId,"not registered videoId"));
+                        return ServerResponse.ok().contentType(MediaType.TEXT_EVENT_STREAM).body(sink.asFlux(), String.class);
+                    } else {
+                        return ServerResponse.ok().bodyValue(encodingChannel.getStatus(key));
+                    }
                 })
-                .onErrorResume(ErrorResponse::commonExceptionHandler);
+                .onErrorResume(IllegalArgumentException.class, e -> Mono.error(new InvalidInputValueException("videoId",videoId,"not registered videoId")));
     }
 
 
-
-
+    public Mono<ServerResponse> deleteVideo(ServerRequest request) {
+        return Mono.just(request.pathVariable("videoId"))
+                .map(videoId -> PathManager.VodPath.rootOf(UUID.fromString(videoId)))
+                .filter(rootPath -> rootPath.toFile().exists())
+                //존재 안하면 404
+                .flatMap(rootPath -> {
+                    if (rootPath.toFile().exists()){
+                        return Mono.just(rootPath);
+                    } else {
+                        return Mono.error(new InvalidInputValueException("videoId",rootPath.getFileName().toString(),"not registered videoId"));
+                    }
+                })
+                //존재하면 삭제
+                .flatMap(fileService::deleteDirectory)
+                .then(ServerResponse.ok().build());
+    }
 }

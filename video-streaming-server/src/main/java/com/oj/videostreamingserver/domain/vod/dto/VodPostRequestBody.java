@@ -69,7 +69,7 @@ public class VodPostRequestBody {
                 //optional 필드 체크 - thumbnail 필드가 있는지 확인
                 //thumbnail 필드가 있으면 FilePart 인지 확인
                 .filter(multiValueMap -> !multiValueMap.containsKey("thumbnail") || multiValueMap.getFirst("thumbnail") instanceof FilePart)
-                .switchIfEmpty(Mono.error(new InvalidInputValueException("optional field","","thumbnail field exist, but type unmatched (needed = FilePart)")))
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("optional field","","thumbnail field exist, but type unmatched (needed = FilePart)"))))
                 //dto 생성
                 .flatMap(multiValueMap -> {
                     //가독성을 위해 변수로 선언

@@ -85,16 +85,16 @@ class VodEncodingHandlerTest {
         @DisplayName("썸네일이 포함되었지만, 파일이 아닐 때")
         void videoInitPost_WhenThumbnailIsNotFile() {
             MultipartBodyBuilder builder = new MultipartBodyBuilder();
-            builder.part("thumbnail","notFile");
-            builder.part("videoId", UUID.randomUUID());
-            MultiValueMap<String, HttpEntity<?>> multiValueMap = builder.build();
+            builder.part("videoId", UUID.randomUUID().toString());
             //비디오 파일 삽입
             Resource videoFile = new DefaultResourceLoader().getResource("classpath:sample.mp4");
             builder.part("video", videoFile);
+            builder.part("thumbnail", "thumbnailFile");
+            MultiValueMap<String, HttpEntity<?>> valueMap = builder.build();
             //mock
             webTestClient.post()
                     .uri("/media")
-                    .body(BodyInserters.fromMultipartData(multiValueMap))
+                    .body(BodyInserters.fromMultipartData(valueMap))
                     .exchange()
                     .expectStatus()
                     .isBadRequest();
