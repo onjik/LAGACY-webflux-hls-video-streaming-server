@@ -1,14 +1,11 @@
 package com.oj.videostreamingserver.domain.vod.domain;
 
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
-import com.oj.videostreamingserver.domain.vod.dto.VodPostRequestBody;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
-import org.springframework.util.Assert;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;

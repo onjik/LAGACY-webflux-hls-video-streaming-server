@@ -2,15 +2,14 @@ package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.component.PathManager;
-import com.oj.videostreamingserver.domain.vod.dto.EncodingEvent;
-import com.oj.videostreamingserver.domain.vod.dto.EncodingRequestForm;
-import com.oj.videostreamingserver.domain.vod.dto.VideoPostResponse;
-import com.oj.videostreamingserver.domain.vod.dto.VodPostRequestBody;
+import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
+import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingRequestForm;
+import com.oj.videostreamingserver.domain.vod.dto.request.ThumbnailPatchRequest;
+import com.oj.videostreamingserver.domain.vod.dto.request.VideoPostRequest;
+import com.oj.videostreamingserver.domain.vod.dto.response.VideoPostResponse;
 import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
-import com.oj.videostreamingserver.global.error.ErrorResponse;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
-import com.oj.videostreamingserver.global.error.exception.LocalSystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,7 +32,7 @@ import static com.oj.videostreamingserver.domain.vod.component.PathManager.*;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class VodEncodingHandler {
+public class EncodingHandler {
 
 
 
@@ -58,8 +57,8 @@ public class VodEncodingHandler {
      * @implNote 인코딩 큐에 등록만 하고, 등록이 성공하면, 200 응답을 보낸다. <br>
      * 그러므로 200 응답을 받았다고 해서 인코딩이 성공했다는 말은 아니고, 인코딩 큐에 등록이 성공했다는 뜻이다.
      */
-    public Mono<ServerResponse> videoInitPost(ServerRequest request){
-        return VodPostRequestBody.monoFromServerRequest(request)//InvalidInputValueException
+    public Mono<ServerResponse> insertVideoDomain(ServerRequest request){
+        return VideoPostRequest.from(request)//InvalidInputValueException
                 //이미 등록된 비디오인지 확인
                 .flatMap(requestBody -> {
                     String videoId = requestBody.getVideoId().toString();
@@ -126,7 +125,8 @@ public class VodEncodingHandler {
     }
 
 
-    public Mono<ServerResponse> deleteVideo(ServerRequest request) {
+
+    public Mono<ServerResponse> deleteVideoDomain(ServerRequest request) {
         return Mono.just(request.pathVariable("videoId"))
                 .map(videoId -> PathManager.VodPath.rootOf(UUID.fromString(videoId)))
                 .filter(rootPath -> rootPath.toFile().exists())
@@ -139,7 +139,30 @@ public class VodEncodingHandler {
                     }
                 })
                 //존재하면 삭제
-                .flatMap(fileService::deleteDirectory)
+                .flatMap(fileService::deleteFile)
+                .then(ServerResponse.ok().build());
+    }
+
+    public Mono<ServerResponse> updateThumbnail(ServerRequest request){
+        return ThumbnailPatchRequest.from(request)
+                //일단 도메인과 썸네일이 있는지 확인
+                .filter(patchRequest -> PathManager.VodPath.thumbnailOf(patchRequest.getVideoId()).toFile().exists())
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId",request.pathVariable("videoId"),"not registered videoId"))))
+                //일단 임시로 저장
+                .flatMap(patchRequest -> {
+                    Path tempSavePath = VodPath.ogThumbnailOf(patchRequest.getVideoId(), patchRequest.getThumbnail().filename());
+                    return fileService.saveFilePart(patchRequest.getThumbnail(),tempSavePath)
+                                    .then(Mono.zip(Mono.just(patchRequest), Mono.just(tempSavePath)));
+                })
+                //기존의 썸네일 위치에 인코딩을 시작(덮어 쓰기)
+                .flatMap(zip -> {
+                    ThumbnailPatchRequest patchRequest = zip.getT1();
+                    Path tempSavePath = zip.getT2();
+                    return encodingService.encodeThumbnail(patchRequest.getVideoId(), tempSavePath.toFile())
+                            .then(Mono.just(tempSavePath));
+                })
+                //기존 파일 삭제
+                .flatMap(fileService::deleteFile)
                 .then(ServerResponse.ok().build());
     }
 }

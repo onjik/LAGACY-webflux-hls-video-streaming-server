@@ -122,8 +122,12 @@ class EncodingServiceTest {
             //테스트를 위해 빌드된 파일을 불러옴
             String tempDirectoryPath = System.getProperty("java.io.tmpdir");
             this.testRootPath = Path.of(tempDirectoryPath).resolve("forTest");
-            this.videoDomainPath = testRootPath.resolve("vod").resolve(testVideoId.toString());
-            System.out.println(videoDomainPath);
+            //mock
+            Field mediaRootPath = PathManager.class.getDeclaredField("mediaRootPath");
+            mediaRootPath.setAccessible(true);
+            mediaRootPath.set(null, testRootPath);
+            this.videoDomainPath = PathManager.VodPath.rootOf(testVideoId);
+
 
             Resource resource = new DefaultResourceLoader().getResource("classpath:sample.mp4");
             videoDomainPath.toFile().mkdirs();
@@ -133,10 +137,7 @@ class EncodingServiceTest {
             Files.copy(resource.getInputStream(), copiedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             System.out.println(copiedFile.toPath());
 
-            //mock
-            Field mediaRootPath = PathManager.class.getDeclaredField("mediaRootPath");
-            mediaRootPath.setAccessible(true);
-            mediaRootPath.set(null, testRootPath);
+
         }
 
         @AfterEach
@@ -200,13 +201,16 @@ class EncodingServiceTest {
             //when
             Mono<Void> voidMono = encodingService.encodeThumbnail(testVideoId, copiedFile);
 
+
+
             //then
             StepVerifier.create(voidMono)
                     .verifyComplete();
+            encodingChannel.getSink(broadKey).get().asFlux().blockLast();
 
 
             //파일들이 잘 저장되었는지 확인
-            File file = copiedFile.toPath().getParent().resolve(PathManager.VodPath.thumbnailOf(testVideoId)).toFile();
+            File file = PathManager.VodPath.thumbnailOf(testVideoId).toFile();
             assertTrue(file.exists());
         }
 

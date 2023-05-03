@@ -1,6 +1,6 @@
 package com.oj.videostreamingserver.domain.vod.component;
 
-import com.oj.videostreamingserver.domain.vod.dto.EncodingEvent;
+import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Sinks;
@@ -11,7 +11,6 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Collectors;
 
 /**
  * EncodingChannel is a channel that stores encoding events.

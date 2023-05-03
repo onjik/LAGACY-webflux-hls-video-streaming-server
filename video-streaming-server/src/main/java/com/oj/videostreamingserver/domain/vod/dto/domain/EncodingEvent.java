@@ -1,4 +1,4 @@
-package com.oj.videostreamingserver.domain.vod.dto;
+package com.oj.videostreamingserver.domain.vod.dto.domain;
 
 import reactor.core.publisher.Sinks;
 

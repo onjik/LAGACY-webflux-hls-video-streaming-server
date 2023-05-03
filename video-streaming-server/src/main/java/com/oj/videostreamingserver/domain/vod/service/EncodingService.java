@@ -1,10 +1,9 @@
 package com.oj.videostreamingserver.domain.vod.service;
 
 import com.oj.videostreamingserver.domain.vod.component.PathManager;
-import com.oj.videostreamingserver.domain.vod.dto.EncodingEvent;
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.component.IndependentExecutor;
-import com.oj.videostreamingserver.domain.vod.dto.EncodingRequestForm;
+import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingRequestForm;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.error.exception.KernelProcessException;
 import lombok.RequiredArgsConstructor;
@@ -12,17 +11,13 @@ import lombok.RequiredArgsConstructor;
 import net.bramp.ffmpeg.FFprobe;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Supplier;
@@ -108,18 +103,8 @@ public class EncodingService {
             }
 
             independentExecutor.executeAndBroadCast(processBuilder,encodingChannel,broadCastKey);
-//            //프로세스를 실행하고 기다림
-//            Process process = processBuilder.start();
-//
-//            if (process.waitFor() != 0){
-//                //실패
-//                throw new KernelProcessException(
-//                        "ffmpeg",
-//                        List.of(targetFile.getAbsolutePath(),new BufferedReader(new InputStreamReader(process.getInputStream())).lines().collect(Collectors.joining("\n"))),
-//                        null);
-//            }
             return null;
-        }).subscribeOn(Schedulers.boundedElastic()); //blocking 코드이므로 별도 쓰레드에서 실행한다.
+        }).subscribeOn(Schedulers.boundedElastic()).publishOn(Schedulers.parallel()); //blocking 코드이므로 별도 쓰레드에서 실행한다. 그 이후는 원래 쓰레드로 돌아간다.
 
 
     }
@@ -205,8 +190,8 @@ public class EncodingService {
 
             //독립적으로 돌아가는 인코딩 쓰레드에 등록한다.
             independentExecutor.executeAndBroadCast(pb,encodingChannel,broadCastKey);
-            return;
-        }).subscribeOn(Schedulers.boundedElastic()); //blocking 코드이므로 별도 쓰레드에서 실행한다.
+
+        }).subscribeOn(Schedulers.boundedElastic()).publishOn(Schedulers.parallel()); //blocking 코드이므로 별도 쓰레드에서 실행한다.
     }
 
 
