@@ -3,3 +3,4 @@
 /.app/
 /app/media
 /app/mysql/db
+# 이 폴더 하위요소들 모두 제외

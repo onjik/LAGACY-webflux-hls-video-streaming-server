@@ -11,18 +11,18 @@ services: # 컨테이너 설정
     #외부와 소통하는 경우에는 ports로 포트 설정.
     ports:
       - "80:80/tcp"
-      - "443:443"
+      - "443:443" # https
+    networks:
+      - outer-network
+    depends_on:
+      - media-server
     volumes:
       #docker-compose.yml과 같은 레벨에 둔 nginx.conf를 mount.
       - ./app/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./app/media:/app/media:ro
-    networks:
-      - outer-network
     environment:
       - TZ=Asia/Seoul
-    depends_on:
-      - media-server
-      - db
+
 
   ###################################
   #### Media Server
@@ -33,42 +33,47 @@ services: # 컨테이너 설정
     build: ./video-streaming-server
     volumes:
       - ./app/media:/app/media:rw
+      - ./app/secret:/app/secret:ro
     networks:
       - outer-network
       - db-network
     depends_on:
-      - db
-#    ports:
-#      - 9000:9000 # 로컬용으로 9000번 포트 개방
+      - mysql
+    ports:
+      - 9000:9000
 #      - 12342:12342 # 디버그용
 
   # https://mycup.tistory.com/382
   ###################################
   #### DB Mysql
   ###################################
-  db:
+  mysql:
     image: mysql
     container_name: db-mysql
     restart: always # 다운시 항상 재시작
+    ports:
+      - 3306:3306
+    networks:
+      - db-network
     command:
       - --default-authentication-plugin=mysql_native_password
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --range_optimizer_max_mem_size=16777216
     environment:
+      MYSQL_PORT: 3306
       MYSQL_ROOT_PASSWORD: qwer1234
+      MYSQL_USER: user
+      MYSQL_PASSWORD: qwer1234
       TZ: Asia/Seoul
     volumes:
       # 설치 주소
       - ./app/mysql/db:/var/lib/mysql:rw
       # 아래 주소의 sql 문을 알파벳 순서대로 실행한다.
       - ./app/mysql/init:/docker-entrypoint-initdb.d:ro
-    networks:
-      - db-network
-#    ports:
-#      - 3306:3306
+
+
 
 networks:
   db-network:
-  back-tier:
   outer-network:
