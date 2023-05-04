@@ -11,8 +11,5 @@ path:
   ffprobe: "/opt/homebrew/bin/ffprobe"
 
 volume:
-  # 시크릿 파일 패스 prefix "file:", "http:", "classpath:"
-  # https://docs.spring.io/spring-framework/docs/3.0.0.M4/reference/html/ch04s04.html
-  secret: "classpath:secret-dev.yml"
   # root dir 부터 시작 ex) app/media
   media: "app/test"

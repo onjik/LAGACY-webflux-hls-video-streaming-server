@@ -28,13 +28,13 @@ jobs:
           username: ${{secrets.DOCKERHUB_USERNAME}}
           password: ${{secrets.DOCKERHUB_PASSWORD}}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{secrets.DOCKERHUB_USERNAME}}/youtube_media_server
-          tags: |
-            type=sha
+#      - name: Extract metadata (tags, labels) for Docker
+#        id: meta
+#        uses: docker/metadata-action@v4
+#        with:
+#          images: ${{secrets.DOCKERHUB_USERNAME}}/youtube_media_server
+#          tags: |
+#            type=sha
 
       - name: Build and push Docker image
         id: build

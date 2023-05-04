@@ -30,10 +30,9 @@ services: # 컨테이너 설정
   media-server: # 내부적으로 여기 접근할때는 media-server:9000
     restart: always # 다운시 항상 재시작
     container_name: media-server
-    image: ojkim/youtube_media_server:sha-7429773
+    image: ojkim/youtube_media_server:latest
     volumes:
       - ./app/media:/app/media:rw
-      - ./app/secret:/app/secret:ro
     networks:
       - outer-network
       - db-network

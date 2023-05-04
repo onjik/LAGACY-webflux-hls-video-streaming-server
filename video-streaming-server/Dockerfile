@@ -15,7 +15,7 @@ RUN apt-get install -y ffmpeg
 WORKDIR /
 COPY --from=builder /app/build/libs/*.jar /app/app.jar
 
-VOLUME ["/app/secret", "/app/media"]
+VOLUME ["/app/media"]
 #EXPOSE 9000 12342
 EXPOSE 9000
 

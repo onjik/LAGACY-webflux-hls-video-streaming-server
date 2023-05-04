@@ -26,16 +26,16 @@ public class SecretEnvironmentLoader implements EnvironmentPostProcessor {
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
 
-        //volume.secret 에 등록된 시크릿 yml 패스를 로딩해서 그 파일의 내용을 환경변수로 등록
-        YamlPropertySourceLoader yamlPropertySourceLoader = new YamlPropertySourceLoader();
-        List<PropertySource<?>> secrets;
-        try {
-            secrets = yamlPropertySourceLoader.load("secrets", loader.getResource(Objects.requireNonNull(environment.getProperty("volume.secret"))));
-        } catch (IOException e) {
-            throw new ApplicationContextException("can't load secret setting");
-        }
+//        //volume.secret 에 등록된 시크릿 yml 패스를 로딩해서 그 파일의 내용을 환경변수로 등록
+//        YamlPropertySourceLoader yamlPropertySourceLoader = new YamlPropertySourceLoader();
+//        List<PropertySource<?>> secrets;
+//        try {
+//            secrets = yamlPropertySourceLoader.load("secrets", loader.getResource(Objects.requireNonNull(environment.getProperty("volume.secret"))));
+//        } catch (IOException e) {
+//            throw new ApplicationContextException("can't load secret setting");
+//        }
 
-        secrets.forEach(environment.getPropertySources()::addLast);
+//        secrets.forEach(environment.getPropertySources()::addLast);
 
     }
 }

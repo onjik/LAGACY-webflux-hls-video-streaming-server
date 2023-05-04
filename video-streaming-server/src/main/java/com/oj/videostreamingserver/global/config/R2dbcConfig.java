@@ -7,7 +7,6 @@ import com.oj.videostreamingserver.global.config.converter.VideoStatusToStringCo
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import lombok.NonNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +14,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.data.convert.CustomConversions;
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration;
-import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
 import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
 import org.springframework.data.r2dbc.dialect.DialectResolver;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
@@ -33,8 +31,11 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
     @Value("${r2dbc.url}")
     private String dbUrl;
 
-    @Autowired
-    Environment environment;
+    private final Environment environment;
+
+    public R2dbcConfig(Environment environment) {
+        this.environment = environment;
+    }
 
     @NonNull
     @Bean
