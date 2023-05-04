@@ -21,6 +21,7 @@ public class VodRouter {
                 .DELETE("/media/vods/{videoId}",vodHandler::deleteVideoDomain)
                 .PATCH("/media/vods/{videoId}/thumbnail",vodHandler::updateThumbnail)
                 .GET("/media/vods/{videoId}/encoding/statuses",vodHandler::broadCastEncodingStatus)
+                .GET("/media/test", request -> ServerResponse.ok().bodyValue("test"))
                 .build();
     }
 }
