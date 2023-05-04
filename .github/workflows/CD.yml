@@ -36,6 +36,7 @@ jobs:
         with:
           context: ./video-streaming-server # repository 기준 도커빌드 위치
           file: ./video-streaming-server/Dockerfile # repository 기준 도커파일 위치
+          platforms: linux/amd64,linux/arm64 # 도커 빌드 플랫폼
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
