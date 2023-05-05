@@ -176,7 +176,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`video_media`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`video_media` (
-  `video_media_Id` INT NOT NULL,
+  `video_media_Id` INT NOT NULL AUTO_INCREMENT,
   `resolution` INT NULL,
   `video_id` BINARY(16) NOT NULL,
   `video_root_path` VARCHAR(255) NULL,
