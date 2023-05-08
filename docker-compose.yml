@@ -1,4 +1,4 @@
-version: "1" # 버전 지정
+version: "3.8" # 버전 지정
 
 services: # 컨테이너 설정
   ###################################
@@ -44,6 +44,22 @@ services: # 컨테이너 설정
     ports:
       - 9000:9000
 #      - 12342:12342 # 디버그용
+
+  ###################################
+  #### Media Server
+  ###################################
+  api-server: # 내부적으로 여기 접근할때는 media-server:9000
+    restart: always # 다운시 항상 재시작
+    container_name: api-server
+    image: ojkim/test-api-server
+    networks:
+      - outer-network
+      - db-network
+    depends_on:
+      - mysql
+    ports:
+      - 8000:8000
+
 
   # https://mycup.tistory.com/382
   ###################################
