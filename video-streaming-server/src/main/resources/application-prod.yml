@@ -16,8 +16,5 @@ r2dbc:
   url: "r2dbc:mysql://root:qwer1234@db-mysql:3306/youtube_clone?serverTimezone=UTC"
 
 volume:
-  # 시크릿 파일 패스 prefix "file:", "http:", "classpath:"
-  # https://docs.spring.io/spring-framework/docs/3.0.0.M4/reference/html/ch04s04.html
-  secret: "file:/app/secret/secret.yml"
   # root dir 부터 시작 ex) app/media
   media: "app/media"
