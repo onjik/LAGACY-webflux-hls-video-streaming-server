@@ -14,7 +14,7 @@ import java.util.UUID;
 @Getter
 @Table("video")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class VodVideo {
+public class VideoEntry {
 
     public enum Status{PUBLIC("public"),PRIVATE("private"),DRAFT("draft");
         private String keyword;
@@ -52,7 +52,7 @@ public class VodVideo {
     @Column("status")
     Status status;
 
-    private VodVideo(UUID videoId, Path rootPath, String title, String description, LocalDateTime createdTime, LocalDateTime updatedTime, int viewCount, Long channelId, Status status) {
+    private VideoEntry(UUID videoId, Path rootPath, String title, String description, LocalDateTime createdTime, LocalDateTime updatedTime, int viewCount, Long channelId, Status status) {
         this.videoId = videoId;
         this.rootPath = rootPath.toAbsolutePath();
         this.title = title;
@@ -66,8 +66,8 @@ public class VodVideo {
 
 
 
-    public static VodVideo createEntity(UUID videoId, Path rootPath, String title, String description, Long channelId){
-        return new VodVideo(videoId,rootPath,title,description,LocalDateTime.now(),LocalDateTime.now(),0,channelId,Status.DRAFT);
+    public static VideoEntry createEntity(UUID videoId, Path rootPath, String title, String description, Long channelId){
+        return new VideoEntry(videoId,rootPath,title,description,LocalDateTime.now(),LocalDateTime.now(),0,channelId,Status.DRAFT);
     }
 
 

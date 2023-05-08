@@ -1,15 +1,26 @@
 package com.oj.videostreamingserver.learning_test;
 
+import com.oj.videostreamingserver.domain.vod.domain.VideoEntry;
+import io.r2dbc.spi.ConnectionFactories;
+import io.r2dbc.spi.ConnectionFactory;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
 
 @Disabled
-public class MonoThreadTest {
+public class LearningTest {
     @Test
     void test() {
         Mono<String> stringMono = Mono.fromCallable(() -> {
@@ -108,5 +119,22 @@ public class MonoThreadTest {
                 .doOnNext(s -> System.out.println(Thread.currentThread().getName() + " : " + s));
         String block = he.block();
         System.out.println("block = " + block);
+    }
+
+    @Test
+    void t(){
+        System.out.println(UUID.randomUUID());
+    }
+    
+    @Test
+    void r2dbcTest(){
+        ConnectionFactory connectionFactory = ConnectionFactories.get("r2dbc:mysql://root:qwer1234@localhost:3306/youtube_clone?serverTimezone=UTC");
+        R2dbcEntityTemplate template = new R2dbcEntityTemplate(connectionFactory);
+        List<VideoEntry> video = template.select(VideoEntry.class)
+                .from("video")
+                .all()
+                .buffer()
+                .blockLast();
+        System.out.println();
     }
 }

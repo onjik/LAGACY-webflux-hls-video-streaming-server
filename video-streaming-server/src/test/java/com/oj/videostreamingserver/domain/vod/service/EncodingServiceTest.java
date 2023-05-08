@@ -1,8 +1,9 @@
 package com.oj.videostreamingserver.domain.vod.service;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
-import com.oj.videostreamingserver.domain.vod.component.IndependentExecutor;
 import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
+import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import net.bramp.ffmpeg.FFprobe;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
@@ -11,7 +12,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.r2dbc.core.ReactiveInsertOperation;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -29,28 +33,28 @@ import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mock;
 
 
-@Profile("test")
 @ExtendWith(MockitoExtension.class)
 class EncodingServiceTest {
     //test target
     EncodingService encodingService;
+    FFprobe ffprobe;
+    ProcessService processService;
+    R2dbcEntityTemplate r2dbcEntityTemplate;
+    TransactionalOperator transactionalOperator;
     EncodingChannel encodingChannel;
-    IndependentExecutor independentExecutor;
 
 
     @BeforeEach
     void setUp() throws IOException {
-        encodingChannel = spy(new EncodingChannel());
-        independentExecutor = new IndependentExecutor();
-        independentExecutor.init();
-        encodingService = new EncodingService(new FFprobe("ffprobe"),encodingChannel,independentExecutor);
-        ReflectionTestUtils.setField(encodingService, "encodingChannel", encodingChannel,EncodingChannel.class);
-        ReflectionTestUtils.setField(encodingService, "independentExecutor", independentExecutor, IndependentExecutor.class);
-    }
+        //mock
+        this.r2dbcEntityTemplate = mock(R2dbcEntityTemplate.class);
+        this.transactionalOperator = mock(TransactionalOperator.class);
+        this.encodingChannel = new EncodingChannel();
 
-    @AfterEach
-    void tearDown() {
-        independentExecutor.destroy();
+        this.ffprobe = new FFprobe("ffprobe");
+        processService = new ProcessService(this.encodingChannel);
+
+        this.encodingService = new EncodingService(ffprobe, processService, r2dbcEntityTemplate, transactionalOperator);
     }
 
     @Nested
@@ -116,8 +120,6 @@ class EncodingServiceTest {
         void setUp() throws IOException, NoSuchFieldException, IllegalAccessException {
             //given
             testVideoId = UUID.fromString("787cd051-aea5-48c5-81b9-c4df7e9ed2db");
-            List<Integer> resolutionCandidates = List.of(360, 480, 720, 1080);
-            String broadKey = encodingChannel.keyResolver(testVideoId, EncodingChannel.Type.VIDEO);
 
             //테스트를 위해 빌드된 파일을 불러옴
             String tempDirectoryPath = System.getProperty("java.io.tmpdir");
@@ -127,6 +129,7 @@ class EncodingServiceTest {
             mediaRootPath.setAccessible(true);
             mediaRootPath.set(null, testRootPath);
             this.videoDomainPath = PathManager.VodPath.rootOf(testVideoId);
+
 
 
             Resource resource = new DefaultResourceLoader().getResource("classpath:sample.mp4");
@@ -150,7 +153,12 @@ class EncodingServiceTest {
 
         @Test
         @DisplayName("비디오 인코딩 테스트")
-        void buildHlsEncodeCommandTest() throws NoSuchFieldException, IllegalAccessException, IOException {
+        void videoEncode() throws NoSuchFieldException, IllegalAccessException, IOException {
+
+            //mock
+            when(transactionalOperator.transactional(any(Mono.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(r2dbcEntityTemplate.insert(any(VideoMediaEntry.class))).thenReturn(Mono.empty());
+
 
             //given
             List<Integer> resolutionCandidates = List.of(360, 480, 720, 1080);
@@ -164,14 +172,18 @@ class EncodingServiceTest {
             Mono<Void> voidMono = encodingService.encodeVideo(testVideoId, ogVideoPath, resolutionCandidates);
 
             //then
+            //정상적으로 끝났는지 검증
             StepVerifier.create(voidMono)
                     .verifyComplete();
 
-            //일단 sink가 error나 complete 될때까지 기다리고, 그 결과가 complete 인지 검증
-            encodingChannel.getSink(broadKey).get().asFlux().blockLast();
-
-            //encodingChannel.reportFinish(broadCastKey); 가 호출 되었는지 검증
-            verify(encodingChannel, times(1)).reportFinish(broadKey);
+            //중계 채널에서 정상적으로 메시지를 날리는지 검증
+            EncodingEvent<String> stringEncodingEvent = encodingChannel.getEncodingEvent(broadKey).get();
+            assertNotNull(stringEncodingEvent);
+            List<String> messages = stringEncodingEvent.getSink().asFlux()
+                    .doOnNext(System.out::println)
+                    .doOnError(s -> fail())
+                    .buffer().blockLast();
+            assertFalse(messages.isEmpty());
 
             //파일들이 잘 저장되었는지 확인
             List<Path> tempPathFileTree = Files.walk(ogVideoPath.getParent()).collect(Collectors.toList());
@@ -206,8 +218,15 @@ class EncodingServiceTest {
             //then
             StepVerifier.create(voidMono)
                     .verifyComplete();
-            encodingChannel.getSink(broadKey).get().asFlux().blockLast();
 
+            EncodingEvent<String> stringEncodingEvent = encodingChannel.getEncodingEvent(testVideoId, EncodingChannel.Type.THUMBNAIL).get();
+            assertNotNull(stringEncodingEvent);
+            List<String> messages = stringEncodingEvent.getSink().asFlux()
+                    .doOnNext(System.out::println)
+                    .doOnError(s -> fail())
+                    .buffer().blockLast();
+
+            assertFalse(messages.isEmpty());
 
             //파일들이 잘 저장되었는지 확인
             File file = PathManager.VodPath.thumbnailOf(testVideoId).toFile();

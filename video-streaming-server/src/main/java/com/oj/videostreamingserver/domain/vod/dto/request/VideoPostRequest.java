@@ -58,14 +58,20 @@ public class VideoPostRequest {
                 //dto 생성
                 .flatMap(request -> {
                     String videoIdField = request.pathVariable("videoId");
-                    UUID videoId = UUID.fromString(videoIdField);
+                    UUID videoId;
+                    try {
+                        videoId = UUID.fromString(videoIdField);
+                    } catch (IllegalArgumentException e){
+                        return Mono.error(new InvalidInputValueException("path variable","videoId", "videoId is not UUID format"));
+                    }
+
                     return request.multipartData()
                             .flatMap(multiValueMap -> {
                                 //필수 필드
                                 FilePart videoFile = (FilePart) multiValueMap.getFirst("video");
                                 //optional 필드
                                 FilePart thumbnail;
-                                if (!multiValueMap.containsKey("thumbnail")) {
+                                if (multiValueMap.containsKey("thumbnail")) {
                                     thumbnail = (FilePart) multiValueMap.getFirst("thumbnail");
                                 } else {
                                     thumbnail = null;

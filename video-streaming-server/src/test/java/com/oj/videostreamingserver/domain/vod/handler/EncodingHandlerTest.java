@@ -2,6 +2,8 @@ package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.domain.VideoEntry;
+import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.router.VodRouter;
 import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
@@ -17,6 +19,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Query;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
@@ -25,6 +29,7 @@ import org.springframework.http.codec.multipart.Part;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.reactive.function.server.MockServerRequest;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.MultiValueMapAdapter;
 import reactor.core.publisher.Flux;
@@ -40,8 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,15 +56,19 @@ class EncodingHandlerTest {
 
     EncodingService encodingService;
     FileService fileService;
+    R2dbcEntityTemplate template;
 
     EncodingChannel encodingChannel;
+    TransactionalOperator transactionalOperator;
 
     @BeforeEach
     void setUp() {
         this.encodingService = mock(EncodingService.class);
         this.fileService = mock(FileService.class);
         this.encodingChannel = mock(EncodingChannel.class);
-        this.encodingHandler = new EncodingHandler(encodingService,fileService,encodingChannel);
+        this.template = mock(R2dbcEntityTemplate.class);
+        this.transactionalOperator = mock(TransactionalOperator.class);
+        this.encodingHandler = new EncodingHandler(encodingService,fileService,encodingChannel,transactionalOperator,template);
     }
 
     @Nested
@@ -102,6 +110,9 @@ class EncodingHandlerTest {
             when(fileService.saveFilePart(any(FilePart.class),any(Path.class))).thenReturn(Mono.<Void>empty());
             when(encodingService.encodeThumbnail(any(UUID.class),any(File.class))).thenReturn(Mono.<Void>empty());
             when(encodingService.encodeVideo(any(UUID.class),any(Path.class),anyList())).thenReturn(Mono.<Void>empty());
+            when(template.exists(any(Query.class),eq(VideoEntry.class))).thenReturn(Mono.just(true));
+            when(template.exists(any(Query.class),eq(VideoMediaEntry.class))).thenReturn(Mono.just(false));
+
 
 
             MultiValueMap<String, FilePart> valueMap = new MultiValueMapAdapter<>(map);
