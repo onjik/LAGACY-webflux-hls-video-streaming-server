@@ -13,7 +13,7 @@ path:
 
 r2dbc:
   # r2dbc:driver[:protocol]://[user:password@]host[:port][/path][?option=value]}.
-  url: "r2dbc:mysql://root:qwer1234@mysql:3306/youtube_clone?serverTimezone=UTC"
+  url: "r2dbc:mysql://root:qwer1234@db-mysql:3306/youtube_clone?serverTimezone=UTC"
 
 volume:
   # 시크릿 파일 패스 prefix "file:", "http:", "classpath:"
