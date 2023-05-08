@@ -18,7 +18,7 @@ USE `youtube_clone` ;
 -- Table `youtube_clone`.`member`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`member` (
-  `member_id` BIGINT(20) NOT NULL,
+  `member_id` BIGINT(20) NOT NULL AUTO_INCREMENT,
   `email` VARCHAR(100) NOT NULL,
   `name` NVARCHAR(50) NOT NULL,
   `provider` VARCHAR(100) NOT NULL,
@@ -31,7 +31,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`channel`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`channel` (
-  `channel_id` BIGINT(20) NOT NULL,
+  `channel_id` BIGINT(20) NOT NULL AUTO_INCREMENT,
   `title` VARCHAR(100) NOT NULL,
   `description` VARCHAR(255) NULL,
   `profile_img` BLOB NULL,
@@ -51,7 +51,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`subscribe`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`subscribe` (
-  `subscribe_id` BIGINT(20) NOT NULL,
+  `subscribe_id` BIGINT(20) NOT NULL AUTO_INCREMENT,
   `subscriber` BIGINT(20) NOT NULL,
   `channel` BIGINT(20) NOT NULL,
   PRIMARY KEY (`subscribe_id`),
@@ -75,7 +75,6 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`video` (
   `video_id` BINARY(16) NOT NULL,
-  `thumb_img` BLOB NOT NULL,
   `title` VARCHAR(100) NOT NULL,
   `description` VARCHAR(255) NOT NULL,
   `created_time` DATETIME NOT NULL,
@@ -97,7 +96,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`comment`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`comment` (
-  `comment_id` BIGINT(20) NOT NULL,
+  `comment_id` BIGINT(20) NOT NULL AUTO_INCREMENT,
   `contents` VARCHAR(255) NOT NULL,
   `created_time` DATETIME NOT NULL,
   `updated_time` DATETIME NOT NULL,
@@ -130,7 +129,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`video_like`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`video_like` (
-  `video_like_id` BIGINT(20) NOT NULL,
+  `video_like_id` BIGINT(20) NOT NULL AUTO_INCREMENT,
   `channel_id` BIGINT(20) NOT NULL,
   `video_id` BINARY(16) NOT NULL,
   PRIMARY KEY (`video_like_id`),
@@ -153,7 +152,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`comment_like`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`comment_like` (
-  `comment_like_id` BIGINT(20) NOT NULL,
+  `comment_like_id` BIGINT(20) NOT NULL AUTO_INCREMENT,
   `channel_id` BIGINT(20) NOT NULL,
   `comment_id` BIGINT(20) NOT NULL,
   PRIMARY KEY (`comment_like_id`),
@@ -176,7 +175,7 @@ ENGINE = InnoDB;
 -- Table `youtube_clone`.`video_media`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `youtube_clone`.`video_media` (
-  `video_media_Id` INT NOT NULL,
+  `video_media_Id` INT NOT NULL AUTO_INCREMENT,
   `resolution` INT NULL,
   `video_id` BINARY(16) NOT NULL,
   `video_root_path` VARCHAR(255) NULL,

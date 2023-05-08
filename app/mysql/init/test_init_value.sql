@@ -1,0 +1,3 @@
+INSERT INTO youtube_clone.member (member_id, email, name, provider) VALUES (1 ,'test@gmail.com', 'test member','google');
+INSERT INTO youtube_clone.channel (channel_id, title, description, member_id) VALUES (1,'test channel', 'test channel description', 1);
+INSERT INTO youtube_clone.video (video_id, title, description, created_time, updated_time, view_count, channel_id, status) VALUES (UNHEX(REPLACE('797cd051-aea5-48c5-81b9-c4df7e9ed2db','-','')),'test video','test video description', now(), now(), 0, 1, 'PUBLIC');
