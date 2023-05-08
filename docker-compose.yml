@@ -31,6 +31,9 @@ services: # 컨테이너 설정
     restart: always # 다운시 항상 재시작
     container_name: media-server
     image: ojkim/youtube_media_server:latest
+#    build:
+#      context: ./video-streaming-server
+#      dockerfile: ./Dockerfile
     volumes:
       - ./app/media:/app/media:rw
     networks:
@@ -70,8 +73,6 @@ services: # 컨테이너 설정
       - ./app/mysql/db:/var/lib/mysql:rw
       # 아래 주소의 sql 문을 알파벳 순서대로 실행한다.
       - ./app/mysql/init:/docker-entrypoint-initdb.d:ro
-
-
 
 networks:
   db-network:

@@ -3,6 +3,7 @@ package com.oj.videostreamingserver.domain.vod.service;
 
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.error.exception.LocalSystemException;
+import org.apache.commons.io.FileUtils;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpStatus;
@@ -43,18 +44,15 @@ public class FileService {
                 .onErrorResume(e -> {
                     //파일 저장에 실패했을 경우
                     return Mono.error(new LocalSystemException(HttpStatus.INTERNAL_SERVER_ERROR, List.of(savePath.toString()), e));
-                })
-                .subscribeOn(Schedulers.boundedElastic())
-                .publishOn(Schedulers.parallel());
+                });
     }
 
-    public Mono<Void> deleteFile(Path filePath) throws IllegalArgumentException{
+    public Mono<Void> deleteFile(Path filePath) throws LocalSystemException{
         return Mono.just(filePath.toFile())
-                .filter(file -> file.exists())
-                .switchIfEmpty(Mono.defer(() -> {throw new IllegalArgumentException();}))
-                .flatMap(file -> file.delete() ? Mono.just(file) : Mono.defer(() -> {throw new IllegalArgumentException();}))
-                .subscribeOn(Schedulers.boundedElastic())
-                .publishOn(Schedulers.parallel())
+                .filter(File::exists)
+                .flatMap(file -> Mono.just(FileUtils.deleteQuietly(file)))
+                .filter(result -> result)
+                .switchIfEmpty(Mono.defer(() -> {throw new LocalSystemException(HttpStatus.INTERNAL_SERVER_ERROR,List.of(filePath.toString()),null);}))
                 .then();
     }
 }

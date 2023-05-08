@@ -7,19 +7,13 @@ import javax.annotation.PostConstruct;
 import java.nio.file.Path;
 import java.util.UUID;
 
-@Component
 public class PathManager {
-    @Value("${volume.media}")
-    private String MEDIA_VOLUME_ROOT;
+
 
     private static Path mediaRootPath;
 
-    /**
-     * 약간의 트릭을 통해 static 필드를 초기화한다.
-     */
-    @PostConstruct
-    protected void init(){
-        mediaRootPath = Path.of(MEDIA_VOLUME_ROOT);
+    public static void setMediaRootPath(Path mediaRootPath) {
+        PathManager.mediaRootPath = mediaRootPath;
     }
 
     /**
@@ -39,7 +33,7 @@ public class PathManager {
 
     public static class VodPath {
         private static final String VOD = "vods";
-        private static final String ORIGINAL_THUMBNAIL_NAME = "temp_thumbnail";
+        private static final String ORIGINAL_THUMBNAIL_NAME = "og_thumbnail";
         private static final String THUMBNAIL = "thumbnail.jpg";
         private static final String ORIGINAL_VIDEO_NAME = "original";
         private static final String MASTER_PLAYLIST_NAME = "master.m3u8";
@@ -78,6 +72,10 @@ public class PathManager {
          */
         public static Path ogVideoOf(UUID videoId, String filename) {
             return rootOf(videoId).resolve(renameFile(filename, ORIGINAL_VIDEO_NAME));
+        }
+
+        public static Path indexPlaylistOf(UUID videoId, String folderName) {
+            return rootOf(videoId).resolve(folderName).resolve("index.m3u8");
         }
 
         public static Path masterPlaylistOf(UUID videoId) {

@@ -2,29 +2,41 @@ package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.domain.VideoEntry;
+import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingRequestForm;
 import com.oj.videostreamingserver.domain.vod.dto.request.ThumbnailPatchRequest;
 import com.oj.videostreamingserver.domain.vod.dto.request.VideoPostRequest;
+import com.oj.videostreamingserver.domain.vod.dto.response.SingleEncodingStatusResponse;
 import com.oj.videostreamingserver.domain.vod.dto.response.VideoPostResponse;
+import com.oj.videostreamingserver.domain.vod.repository.VideoMediaRepository;
 import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
+import com.oj.videostreamingserver.global.config.converter.UUIDToBinaryConverter;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
+import com.oj.videostreamingserver.global.util.ConverterUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 import java.nio.file.Path;
 import java.util.*;
 
 import static com.oj.videostreamingserver.domain.vod.component.PathManager.*;
+import static org.springframework.data.relational.core.query.Criteria.where;
 
 /**
  * POST /media : 원본 비디오 포스팅 용 API 핸들러
@@ -42,54 +54,62 @@ public class EncodingHandler {
     private final FileService fileService;
 
     private final EncodingChannel encodingChannel;
+    private final TransactionalOperator transactionalOperator;
 
-//    private final TransactionalOperator transactionalOperator;
-//
-//    private final R2dbcEntityTemplate template;
-
+    private final R2dbcEntityTemplate template;
 
 
-    /**
-     * 비디오, 썸네일 첫 포스팅 핸들러 <br>
-     * @param request 서버 요청
-     * @return 서버 응답
-     * @apiNote 비디오 포스팅 API
-     * @implNote 인코딩 큐에 등록만 하고, 등록이 성공하면, 200 응답을 보낸다. <br>
-     * 그러므로 200 응답을 받았다고 해서 인코딩이 성공했다는 말은 아니고, 인코딩 큐에 등록이 성공했다는 뜻이다.
-     */
+    //처음 비디오를 등록할 때 사용하는 핸들러
     public Mono<ServerResponse> insertVideoDomain(ServerRequest request){
         return VideoPostRequest.from(request)//InvalidInputValueException
-                //이미 등록된 비디오인지 확인
+                //비디오 아이디가 유효한지 확인
                 .flatMap(requestBody -> {
-                    String videoId = requestBody.getVideoId().toString();
-                    if (encodingChannel.isRegistered(videoId)) {
-                        return Mono.error(new InvalidInputValueException("encodingRequest",videoId,"already registered encoding request"));
-                    }
-                    if (PathManager.VodPath.rootOf(requestBody.getVideoId()).toFile().exists()){
-                        return Mono.error(new InvalidInputValueException("videoId",videoId,"already registered video"));
-                    }
-                    return Mono.just(requestBody);
+                    return template.exists(Query.query(where("video_id").is(ConverterUtil.convertToByte(requestBody.getVideoId()))), VideoEntry.class)
+                            .filter(exists -> exists)
+                            .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId",requestBody.getVideoId().toString(),"invalid videoId"))))
+                            .then(Mono.just(requestBody));
                 })
-                //오리지널 파일 저장 로직 - 여기까지는 트랜잭션 대상임
+                //이미 존재하는 파일인지와, 인코딩 큐에 들어가 있는지를 동시에 확인
+                .flatMap(requestBody -> {
+                    return template.exists(Query.query(where("video_id").is(ConverterUtil.convertToByte(requestBody.getVideoId()))), VideoMediaEntry.class)
+                            .filter(exists -> !exists)
+                            .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId",requestBody.getVideoId().toString(),"already registered video"))))
+                            .then(Mono.just(requestBody));
+                })
+                .flatMap(requestBody -> {
+                    UUID videoId = requestBody.getVideoId();
+                    Mono<Boolean> isVideoEncodingRegistered = Mono.defer(() -> Mono.just(encodingChannel.contains(videoId, EncodingChannel.Type.VIDEO)));
+                    Mono<Boolean> isThumbnailEncodingRegistered = Mono.defer(() -> Mono.defer(() -> Mono.just(encodingChannel.contains(videoId, EncodingChannel.Type.THUMBNAIL))));
+
+                    return Mono.zip(isVideoEncodingRegistered, isThumbnailEncodingRegistered)
+                            .filter(zip -> !zip.getT1())
+                            .filter(zip -> !zip.getT2())
+                            .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId",requestBody.getVideoId().toString(),"already registered video"))))
+                            .then(Mono.just(requestBody));
+                })
+                // main logic
+                // 주어진 파일 저장
+                .publishOn(Schedulers.boundedElastic()) //아래의 작업은 블로킹이 심하므로, 별도의 쓰레드로 분리
                 .flatMap(requestBody -> {
                     FilePart videoFile = requestBody.getVideoFile();
                     FilePart thumbnail = requestBody.getThumbnail();
 
                     UUID videoId = requestBody.getVideoId();
 
-                    Path ogVideoPath = PathManager.VodPath.ogVideoOf(videoId, videoFile.filename());
+                    Path ogVideoPath = VodPath.ogVideoOf(videoId, videoFile.filename());
                     Path thumbnailPath = VodPath.thumbnailOf(videoId);
+                    Path tempThumbnailPath = VodPath.ogThumbnailOf(videoId, thumbnail.filename());
 
                     //오리지널 파일을 저장한다.
                     return fileService.saveFilePart(videoFile, ogVideoPath)
                             //썸네일을 저장한다.
                             .then(Mono.justOrEmpty(thumbnail))
-                            //썸네일이 주어졌을 경우 - 주어진 썸네일로 인코딩
-                            .flatMap(thumbnailFile -> fileService.saveFilePart(thumbnailFile, thumbnailPath)
-                                    .then(encodingService.encodeThumbnail(videoId, thumbnailPath.toFile()))
+                            .flatMap(thumbnailFile -> fileService.saveFilePart(thumbnailFile, tempThumbnailPath)
+                                    .then(Mono.just(tempThumbnailPath))
                             )
-                            //썸네일이 주어지지 않았을 경우 - 썸네일을 추출한다.
-                            .switchIfEmpty(Mono.defer(() -> encodingService.encodeThumbnail(videoId, ogVideoPath.toFile())))
+                            .switchIfEmpty(Mono.defer(() -> Mono.just(ogVideoPath)))
+                            //썸네일 인코딩
+                            .flatMap(encodingTargetPath -> encodingService.encodeThumbnail(videoId,encodingTargetPath.toFile()))
                             //인코딩 요청서 작성
                             .then(Mono.just(EncodingRequestForm.builder()
                                             .videoId(videoId)
@@ -97,12 +117,13 @@ public class EncodingHandler {
                                             .resolutionCandidates(List.of(1080, 720, 480, 360))
                                             .build()));
                 })
-                //비디오 인코딩 - 여기서 부터는 별도의 쓰레드에 제어권이 넘어가므로, 에러가 나도 서버측에서 알아서 처리해야함
+                //비디오 인코딩 요청
                 .flatMap(encodingRequest -> {
+                    UUID videoId = encodingRequest.getVideoId();
                     Path ogVideoPath = encodingRequest.getOgVideoPath();
-                    List<Integer> resolutionCandidate = List.of(1080, 720, 480, 360);
+                    List<Integer> resolutionCandidates = encodingRequest.getResolutionCandidates();
                     //오리지널 파일을 저장한다.
-                    return encodingService.encodeVideo(encodingRequest.getVideoId(), ogVideoPath, resolutionCandidate)
+                    return encodingService.encodeVideo(videoId, ogVideoPath, resolutionCandidates)
                             .then(Mono.just(encodingRequest.getVideoId()));
                 })
                 //정상적인 응답 작성
@@ -110,35 +131,64 @@ public class EncodingHandler {
     }
 
 
-    public Mono<ServerResponse> broadCastEncodingStatus(ServerRequest request){
+    public Mono<ServerResponse> broadCastEncodingStatus(ServerRequest request) {
         String videoId = request.pathVariable("videoId");
-        return Mono.just(encodingChannel.keyResolver(videoId, EncodingChannel.Type.VIDEO))
-                .flatMap(key -> {
-                    if (encodingChannel.getStatus(key).equals(EncodingEvent.Status.RUNNING)){
-                        Sinks.Many<String> sink = encodingChannel.getSink(key).orElseThrow(() -> new InvalidInputValueException("videoId",videoId,"not registered videoId"));
+        return Mono.just(encodingChannel.getEncodingEvent(UUID.fromString(videoId), EncodingChannel.Type.VIDEO))
+                .filter(Optional::isPresent)
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId", videoId, "not registered videoId"))))
+                .map(Optional::get)
+                .flatMap(encodingEvent -> {
+                    if (encodingEvent.getStatus().equals(EncodingEvent.Status.RUNNING)) {
+                        Sinks.Many<String> sink = encodingEvent.getSink();
                         return ServerResponse.ok().contentType(MediaType.TEXT_EVENT_STREAM).body(sink.asFlux(), String.class);
                     } else {
-                        return ServerResponse.ok().bodyValue(encodingChannel.getStatus(key));
+                        return ServerResponse.ok().bodyValue(encodingEvent.getStatus());
                     }
-                })
-                .onErrorResume(IllegalArgumentException.class, e -> Mono.error(new InvalidInputValueException("videoId",videoId,"not registered videoId")));
+                });
     }
 
+    public Mono<ServerResponse> getEncodingStatus(ServerRequest request) {
+        UUID videoId = UUID.fromString(request.pathVariable("videoId"));
+        return Mono.just(encodingChannel.selectByVideoId(videoId))
+                .filter(map -> !map.isEmpty())
+                .flatMap(map -> {
+                    Mono<EncodingEvent.Status> entireStatus = Mono.justOrEmpty(map.values().stream()
+                            .map(Enum::ordinal)
+                            .max(Integer::compareTo)
+                            .map(maxOrdinal -> EncodingEvent.Status.values()[maxOrdinal]));
+                    return entireStatus
+                            .flatMap(status -> Mono.just(new SingleEncodingStatusResponse(map,status)));
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    return template.exists(Query.query(where("video_id").is(ConverterUtil.convertToByte(videoId))), VideoMediaEntry.class)
+                            .filter(exists -> exists)
+                            .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId", videoId.toString(), "not registered videoId"))))
+                            .then(Mono.just(new SingleEncodingStatusResponse(EncodingEvent.Status.COMPLETE)));
+                }))
+                .flatMap(body -> ServerResponse.ok().bodyValue(body));
+    }
 
 
     public Mono<ServerResponse> deleteVideoDomain(ServerRequest request) {
         return Mono.just(request.pathVariable("videoId"))
-                .map(videoId -> PathManager.VodPath.rootOf(UUID.fromString(videoId)))
+                .map(UUID::fromString)
+                //DB 에 존재하는지 체크
+                .flatMap(videoId -> template.exists(Query.query(where("video_id").is(ConverterUtil.convertToByte(videoId))), VideoMediaEntry.class)
+                        .filter(exists -> exists)
+                        .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId", request.pathVariable("videoId"), "not registered videoId"))))
+                        .then(Mono.just(videoId)))
+                .publishOn(Schedulers.boundedElastic())
+                //트랜잭션
+                .as(transactionalOperator::transactional)
+                //DB 에서 삭제
+                .flatMap(videoId -> template.delete(VideoMediaEntry.class)
+                        .from("video_media")
+                        .matching(Query.query(where("video_id").is(ConverterUtil.convertToByte(videoId))))
+                        .all()
+                        .onErrorResume(ClassCastException.class,e -> Mono.empty()) //라이브러리 자체 이슈 때문에 임시 조치
+                        .then(Mono.just(VodPath.rootOf(videoId))))
+                //존재하면 파일 시스템에서 삭제
                 .filter(rootPath -> rootPath.toFile().exists())
-                //존재 안하면 404
-                .flatMap(rootPath -> {
-                    if (rootPath.toFile().exists()){
-                        return Mono.just(rootPath);
-                    } else {
-                        return Mono.error(new InvalidInputValueException("videoId",rootPath.getFileName().toString(),"not registered videoId"));
-                    }
-                })
-                //존재하면 삭제
                 .flatMap(fileService::deleteFile)
                 .then(ServerResponse.ok().build());
     }
@@ -146,8 +196,10 @@ public class EncodingHandler {
     public Mono<ServerResponse> updateThumbnail(ServerRequest request){
         return ThumbnailPatchRequest.from(request)
                 //일단 도메인과 썸네일이 있는지 확인
-                .filter(patchRequest -> PathManager.VodPath.thumbnailOf(patchRequest.getVideoId()).toFile().exists())
-                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId",request.pathVariable("videoId"),"not registered videoId"))))
+                .flatMap(patchRequest -> template.exists(Query.query(where("video_id").is(ConverterUtil.convertToByte(patchRequest.getVideoId()))), VideoMediaEntry.class)
+                        .filter(exists -> exists)
+                        .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoId",request.pathVariable("videoId"),"not registered videoId"))))
+                        .then(Mono.just(patchRequest)))
                 //일단 임시로 저장
                 .flatMap(patchRequest -> {
                     Path tempSavePath = VodPath.ogThumbnailOf(patchRequest.getVideoId(), patchRequest.getThumbnail().filename());
@@ -161,8 +213,6 @@ public class EncodingHandler {
                     return encodingService.encodeThumbnail(patchRequest.getVideoId(), tempSavePath.toFile())
                             .then(Mono.just(tempSavePath));
                 })
-                //기존 파일 삭제
-                .flatMap(fileService::deleteFile)
                 .then(ServerResponse.ok().build());
     }
 }
