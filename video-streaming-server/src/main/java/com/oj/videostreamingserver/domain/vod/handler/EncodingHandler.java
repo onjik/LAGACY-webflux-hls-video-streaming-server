@@ -98,14 +98,13 @@ public class EncodingHandler {
 
                     Path ogVideoPath = VodPath.ogVideoOf(videoId, videoFile.filename());
                     Path thumbnailPath = VodPath.thumbnailOf(videoId);
-                    Path tempThumbnailPath = VodPath.ogThumbnailOf(videoId, thumbnail.filename());
 
                     //오리지널 파일을 저장한다.
                     return fileService.saveFilePart(videoFile, ogVideoPath)
                             //썸네일을 저장한다.
                             .then(Mono.justOrEmpty(thumbnail))
-                            .flatMap(thumbnailFile -> fileService.saveFilePart(thumbnailFile, tempThumbnailPath)
-                                    .then(Mono.just(tempThumbnailPath))
+                            .flatMap(thumbnailFile -> fileService.saveFilePart(thumbnailFile, VodPath.ogThumbnailOf(videoId, thumbnail.filename()))
+                                    .then(Mono.just(VodPath.ogThumbnailOf(videoId, thumbnail.filename())))
                             )
                             .switchIfEmpty(Mono.defer(() -> Mono.just(ogVideoPath)))
                             //썸네일 인코딩
