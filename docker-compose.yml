@@ -12,8 +12,6 @@ services: # 컨테이너 설정
     ports:
       - "80:80/tcp"
       - "443:443" # https
-    networks:
-      - outer-network
     depends_on:
       - media-server
     volumes:
@@ -36,60 +34,36 @@ services: # 컨테이너 설정
 #      dockerfile: ./Dockerfile
     volumes:
       - ./app/media:/app/media:rw
-    networks:
-      - outer-network
-      - db-network
-    depends_on:
-      - mysql
     ports:
       - 9000:9000
 #      - 12342:12342 # 디버그용
-
-  ###################################
-  #### Media Server
-  ###################################
-  api-server: # 내부적으로 여기 접근할때는 media-server:9000
-    restart: always # 다운시 항상 재시작
-    container_name: api-server
-    image: ojkim/test-api-server
-    networks:
-      - outer-network
-      - db-network
-    depends_on:
-      - mysql
-    ports:
-      - 8000:8000
 
 
   # https://mycup.tistory.com/382
   ###################################
   #### DB Mysql
   ###################################
-  mysql:
-    image: mysql
-    container_name: db-mysql
-    restart: always # 다운시 항상 재시작
-    ports:
-      - 3306:3306
-    networks:
-      - db-network
-    command:
-      - --default-authentication-plugin=mysql_native_password
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --range_optimizer_max_mem_size=16777216
-    environment:
-      MYSQL_PORT: 3306
-      MYSQL_ROOT_PASSWORD: qwer1234
-      MYSQL_USER: user
-      MYSQL_PASSWORD: qwer1234
-      TZ: Asia/Seoul
-    volumes:
-      # 설치 주소
-      - ./app/mysql/db:/var/lib/mysql:rw
-      # 아래 주소의 sql 문을 알파벳 순서대로 실행한다.
-      - ./app/mysql/init:/docker-entrypoint-initdb.d:ro
-
-networks:
-  db-network:
-  outer-network:
+#  mysql:
+#    image: mysql
+#    container_name: db-mysql
+#    restart: always # 다운시 항상 재시작
+#    ports:
+#      - 3306:3306
+#    networks:
+#      - db-network
+#    command:
+#      - --default-authentication-plugin=mysql_native_password
+#      - --character-set-server=utf8mb4
+#      - --collation-server=utf8mb4_unicode_ci
+#      - --range_optimizer_max_mem_size=16777216
+#    environment:
+#      MYSQL_PORT: 3306
+#      MYSQL_ROOT_PASSWORD: qwer1234
+#      MYSQL_USER: user
+#      MYSQL_PASSWORD: qwer1234
+#      TZ: Asia/Seoul
+#    volumes:
+#      # 설치 주소
+#      - ./app/mysql/db:/var/lib/mysql:rw
+#      # 아래 주소의 sql 문을 알파벳 순서대로 실행한다.
+#      - ./app/mysql/init:/docker-entrypoint-initdb.d:ro
