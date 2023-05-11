@@ -18,10 +18,10 @@ COPY --from=builder /app/build/libs/*.jar /app/app.jar
 
 VOLUME ["/app/media"]
 #EXPOSE 9000 12342
-EXPOSE 9000
+EXPOSE 9000 12342
 
 
 #ENTRYPOINT ["java","-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:12342","-jar","app.jar","-Dspring.profiles.active=prod","--server.port=9000"]
-ENTRYPOINT ["java","-jar","/app/app.jar","-Dspring.profiles.active=prod","--server.port=9000"]
+ENTRYPOINT ["java","-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:12342","-jar","/app/app.jar","-Dspring.profiles.active=prod","--server.port=9000"]
 
 
