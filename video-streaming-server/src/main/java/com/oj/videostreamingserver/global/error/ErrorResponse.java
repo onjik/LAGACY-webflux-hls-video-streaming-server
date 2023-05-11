@@ -17,7 +17,10 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Getter
@@ -27,7 +30,17 @@ public class ErrorResponse {
     private String message;
     private String status;
     private List<FieldError> errors;
+    private List<String> stackTrace;
     private String code;
+
+    //디버그 용
+    public ErrorResponse(ErrorCode code, List<String> stackTrace, String message){
+        this.message = message;
+        this.status = code.getStatus().toString();
+        this.errors = Collections.emptyList();
+        this.stackTrace = stackTrace;
+        this.code = code.getCode();
+    }
 
     private ErrorResponse(ErrorCode code, List<FieldError> errors){
         this.message = code.getMessage();
@@ -59,6 +72,8 @@ public class ErrorResponse {
 
 
     public static Mono<ServerResponse> globalExceptionHandler(Throwable e){
+        //예외 상황을 로그로 출력
+        log.error("exception : {}", Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).reduce((a,b)-> a+"\n"+b).orElse("no stack trace"));
         //분기적 예외 처리
         //데이터베이스 관련 예외
         if (e instanceof DataAccessException) {

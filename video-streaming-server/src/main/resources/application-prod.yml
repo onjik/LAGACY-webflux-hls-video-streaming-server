@@ -5,15 +5,12 @@ server:
 logging:
   level:
     org.springframework.r2dbc.core: info
-    root: info
+    root: debug
 # ffmpeg 커널 패스
 path:
   ffmpeg: "ffmpeg"
   ffprobe: "ffprobe"
 
-r2dbc:
-  # r2dbc:driver[:protocol]://[user:password@]host[:port][/path][?option=value]}.
-  url: "r2dbc:mysql://root:qwer1234@db-mysql:3306/youtube_clone?serverTimezone=UTC"
 
 volume:
   # root dir 부터 시작 ex) app/media

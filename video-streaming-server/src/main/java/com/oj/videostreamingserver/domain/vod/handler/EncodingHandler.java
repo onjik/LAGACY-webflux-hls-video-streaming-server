@@ -10,10 +10,8 @@ import com.oj.videostreamingserver.domain.vod.dto.request.ThumbnailPatchRequest;
 import com.oj.videostreamingserver.domain.vod.dto.request.VideoPostRequest;
 import com.oj.videostreamingserver.domain.vod.dto.response.SingleEncodingStatusResponse;
 import com.oj.videostreamingserver.domain.vod.dto.response.VideoPostResponse;
-import com.oj.videostreamingserver.domain.vod.repository.VideoMediaRepository;
 import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
-import com.oj.videostreamingserver.global.config.converter.UUIDToBinaryConverter;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.util.ConverterUtil;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +25,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
@@ -98,14 +95,13 @@ public class EncodingHandler {
 
                     Path ogVideoPath = VodPath.ogVideoOf(videoId, videoFile.filename());
                     Path thumbnailPath = VodPath.thumbnailOf(videoId);
-                    Path tempThumbnailPath = VodPath.ogThumbnailOf(videoId, thumbnail.filename());
 
                     //오리지널 파일을 저장한다.
                     return fileService.saveFilePart(videoFile, ogVideoPath)
                             //썸네일을 저장한다.
                             .then(Mono.justOrEmpty(thumbnail))
-                            .flatMap(thumbnailFile -> fileService.saveFilePart(thumbnailFile, tempThumbnailPath)
-                                    .then(Mono.just(tempThumbnailPath))
+                            .flatMap(thumbnailFile -> fileService.saveFilePart(thumbnailFile, VodPath.ogThumbnailOf(videoId, thumbnail.filename()))
+                                    .then(Mono.just(VodPath.ogThumbnailOf(videoId, thumbnail.filename())))
                             )
                             .switchIfEmpty(Mono.defer(() -> Mono.just(ogVideoPath)))
                             //썸네일 인코딩
