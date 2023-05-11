@@ -35,7 +35,7 @@ public class SecretEnvironmentLoader implements EnvironmentPostProcessor {
 
     // 환경 변수와 매핑할 프로퍼티 이름
     enum PropertyName {
-        DATABASE_URL("spring.r2dbc.url"),
+        DATABASE_URL("r2dbc.url"),
         FFMPEG_PATH("path.ffmpeg"),
         FFPROBE_PATH("path.ffprobe"),
         MEDIA_STORAGE_PATH("volume.media"),
