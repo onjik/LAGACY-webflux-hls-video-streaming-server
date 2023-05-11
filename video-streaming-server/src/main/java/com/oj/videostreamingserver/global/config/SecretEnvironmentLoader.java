@@ -7,16 +7,15 @@ import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.context.ApplicationContextException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.MutablePropertySources;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.env.SystemEnvironmentPropertySource;
+import org.springframework.core.env.*;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -66,17 +65,15 @@ public class SecretEnvironmentLoader implements EnvironmentPostProcessor {
     }
 
     private void scanSystemEnvironment(MutablePropertySources propertySources) {
+        Map<String,Object> systemEnvMap = new HashMap<>();
         for (PropertyName propertyName : PropertyName.values()) {
             String systemEnv = System.getenv(propertyName.name());
             if (Objects.nonNull(systemEnv)) {
-                propertySources.addFirst(new PropertySource<String>(propertyName.getPropertyName()) {
-                    @Override
-                    public Object getProperty(String name) {
-                        return systemEnv;
-                    }
-                });
+                systemEnvMap.put(propertyName.getPropertyName(),systemEnv);
             }
         }
+        //시스템 변수를 통해 지정된 프로퍼티를 맨 앞에 추가한다.
+        propertySources.addFirst(new MapPropertySource("systemEnvProperty",systemEnvMap));
     }
 }
 
