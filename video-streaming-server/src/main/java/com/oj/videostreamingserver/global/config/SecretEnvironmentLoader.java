@@ -53,8 +53,6 @@ public class SecretEnvironmentLoader implements EnvironmentPostProcessor {
         }
     }
 
-
-    private final ResourceLoader loader = new DefaultResourceLoader();
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
 

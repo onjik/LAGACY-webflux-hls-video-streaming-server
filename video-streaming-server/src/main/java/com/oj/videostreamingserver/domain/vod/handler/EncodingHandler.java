@@ -94,7 +94,6 @@ public class EncodingHandler {
                     UUID videoId = requestBody.getVideoId();
 
                     Path ogVideoPath = VodPath.ogVideoOf(videoId, videoFile.filename());
-                    Path thumbnailPath = VodPath.thumbnailOf(videoId);
 
                     //오리지널 파일을 저장한다.
                     return fileService.saveFilePart(videoFile, ogVideoPath)
@@ -120,10 +119,10 @@ public class EncodingHandler {
                     List<Integer> resolutionCandidates = encodingRequest.getResolutionCandidates();
                     //오리지널 파일을 저장한다.
                     return encodingService.encodeVideo(videoId, ogVideoPath, resolutionCandidates)
-                            .then(Mono.just(encodingRequest.getVideoId()));
+                            .flatMap(probeResult -> Mono.just(new VideoPostResponse(videoId.toString(), probeResult.getStreams().get(0).duration)));
                 })
                 //정상적인 응답 작성
-                .flatMap(videoId -> ServerResponse.status(HttpStatus.OK).bodyValue(new VideoPostResponse(videoId.toString())));
+                .flatMap(videoPostResponse -> ServerResponse.status(HttpStatus.OK).bodyValue(videoPostResponse));
     }
 
 
