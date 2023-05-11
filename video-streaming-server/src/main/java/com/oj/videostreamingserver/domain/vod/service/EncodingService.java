@@ -9,6 +9,7 @@ import com.oj.videostreamingserver.global.error.exception.KernelProcessException
 import lombok.RequiredArgsConstructor;
 
 import net.bramp.ffmpeg.FFprobe;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
@@ -104,7 +105,7 @@ public class EncodingService {
      * @return Mono<Void> 비디오 인코딩이 완료되면 완료 신호를 보낸다.
      * @throws IllegalArgumentException 인자중에 null 이나 emptyList 이 있을 경우 발생한다.
      */
-    public Mono<Void> encodeVideo(UUID videoId, Path ogVideoPath, List<Integer> resolutionCandidates) throws IllegalArgumentException {
+    public Mono<FFmpegProbeResult> encodeVideo(UUID videoId, Path ogVideoPath, List<Integer> resolutionCandidates) throws IllegalArgumentException {
         Assert.notNull(videoId, "videoId must not be null");
         Assert.notNull(ogVideoPath, "ogVideoPath must not be null");
         Assert.notNull(resolutionCandidates, "resolutionCandidates must not be null");
@@ -112,6 +113,8 @@ public class EncodingService {
 
         return Mono.fromCallable(() -> fFprobe.probe(ogVideoPath.toAbsolutePath().toString()))
                 .onErrorResume(e -> Mono.error(new KernelProcessException("ffprobe", List.of(ogVideoPath.toAbsolutePath().toString()), e)))
+                .filter(probeResult -> probeResult.getStreams().stream().anyMatch(stream -> stream.codec_type == FFmpegStream.CodecType.VIDEO))
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoFile", videoId.toString(), "비디오 파일에 비디오 스트림이 존재하지 않습니다."))))
                 .flatMap(probeResult -> {
                     List<FFmpegStream> audioStream = probeResult.getStreams().stream()
                             .filter(stream -> stream.codec_type == FFmpegStream.CodecType.AUDIO)
@@ -119,13 +122,6 @@ public class EncodingService {
                     List<FFmpegStream> videoStream = probeResult.getStreams().stream()
                             .filter(stream -> stream.codec_type == FFmpegStream.CodecType.VIDEO)
                             .collect(Collectors.toList());
-                    return Mono.zip(Mono.just(audioStream), Mono.just(videoStream));
-                })
-                .filter(tuple -> !tuple.getT2().isEmpty())
-                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoFile", videoId.toString(), "비디오 파일에 비디오 스트림이 존재하지 않습니다."))))
-                .flatMap(tuple -> {
-                    List<FFmpegStream> audioStream = tuple.getT1();
-                    List<FFmpegStream> videoStream = tuple.getT2();
                     //일단 어떤 화질을 만들 것인지 선택
                     int height = videoStream.get(0).height;
                     List<Integer> resolutions = resolutionCandidates.stream()
@@ -157,7 +153,7 @@ public class EncodingService {
                             .thenMany(processService.executeAndEmitLog(processBuilder, videoId, EncodingChannel.Type.VIDEO))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe();
-                    return Mono.empty();
+                    return Mono.just(probeResult);
                 });
 
     }
