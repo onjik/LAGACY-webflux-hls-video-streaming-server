@@ -51,12 +51,13 @@ public class VideoPostRequest {
                         .filter(multiValueMap -> multiValueMap.getFirst("video") instanceof FilePart)
                         .filter(multiValueMap -> {
                             MediaType video = multiValueMap.getFirst("video").headers().getContentType();
-                            return video != null && video.getType().startsWith("video/");
+                            return video != null && video.getType().equals("video");
                         })
                         .switchIfEmpty(Mono.defer(()->Mono.error(new InvalidInputValueException("mandatory field","","video field is mandatory, but not exist or type unmatched(needed = FilePart)"))))
                         //optional 필드 체크 - thumbnail 필드가 있는지 확인
                         //thumbnail 필드가 있으면 FilePart 인지 확인
                         .filter(multiValueMap -> !multiValueMap.containsKey("thumbnail") || multiValueMap.getFirst("thumbnail") instanceof FilePart)
+                        .filter(multiValueMap -> !multiValueMap.containsKey("thumbnail") || multiValueMap.getFirst("thumbnail").headers().getContentType().getType().equals("image"))
                         .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("optional field","","thumbnail field exist, but type unmatched (needed = FilePart)"))))
                         .then(Mono.just(request)
                 ))

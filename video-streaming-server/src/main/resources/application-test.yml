@@ -9,6 +9,9 @@ logging:
 path:
   ffmpeg: "/opt/homebrew/bin/ffmpeg"
   ffprobe: "/opt/homebrew/bin/ffprobe"
+r2dbc:
+  # r2dbc:driver[:protocol]://[user:password@]host[:port][/path][?option=value]}.
+  url: "r2dbc:mysql://root:qwer1234@localhost:3306/youtube_clone?serverTimezone=UTC"
 
 volume:
   # root dir 부터 시작 ex) app/media

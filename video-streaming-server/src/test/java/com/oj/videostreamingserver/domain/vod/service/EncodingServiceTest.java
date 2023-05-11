@@ -5,6 +5,7 @@ import com.oj.videostreamingserver.domain.vod.component.PathManager;
 import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import net.bramp.ffmpeg.FFprobe;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -169,11 +170,12 @@ class EncodingServiceTest {
 
 
             //when
-            Mono<Void> voidMono = encodingService.encodeVideo(testVideoId, ogVideoPath, resolutionCandidates);
+            Mono<FFmpegProbeResult> fFmpegProbeResultMono = encodingService.encodeVideo(testVideoId, ogVideoPath, resolutionCandidates);
 
             //then
             //정상적으로 끝났는지 검증
-            StepVerifier.create(voidMono)
+            StepVerifier.create(fFmpegProbeResultMono)
+                    .expectNextCount(1)
                     .verifyComplete();
 
             //중계 채널에서 정상적으로 메시지를 날리는지 검증
