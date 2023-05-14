@@ -1,7 +1,6 @@
 package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
 import com.oj.videostreamingserver.domain.vod.domain.VideoEntry;
 import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
@@ -25,14 +24,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import java.nio.file.Path;
 import java.util.*;
 
-import static com.oj.videostreamingserver.domain.vod.component.PathManager.*;
+import static com.oj.videostreamingserver.domain.vod.util.PathManager.*;
 import static org.springframework.data.relational.core.query.Criteria.where;
 
 /**
@@ -134,8 +133,8 @@ public class EncodingHandler {
                 .map(Optional::get)
                 .flatMap(encodingEvent -> {
                     if (encodingEvent.getStatus().equals(EncodingEvent.Status.RUNNING)) {
-                        Sinks.Many<String> sink = encodingEvent.getSink();
-                        return ServerResponse.ok().contentType(MediaType.TEXT_EVENT_STREAM).body(sink.asFlux(), String.class);
+                        Flux<String> eventFlux = encodingEvent.getFlux();
+                        return ServerResponse.ok().contentType(MediaType.TEXT_EVENT_STREAM).body(eventFlux, String.class);
                     } else {
                         return ServerResponse.ok().bodyValue(encodingEvent.getStatus());
                     }

@@ -30,17 +30,7 @@ public class ErrorResponse {
     private String message;
     private String status;
     private List<FieldError> errors;
-    private List<String> stackTrace;
     private String code;
-
-    //디버그 용
-    public ErrorResponse(ErrorCode code, List<String> stackTrace, String message){
-        this.message = message;
-        this.status = code.getStatus().toString();
-        this.errors = Collections.emptyList();
-        this.stackTrace = stackTrace;
-        this.code = code.getCode();
-    }
 
     private ErrorResponse(ErrorCode code, List<FieldError> errors){
         this.message = code.getMessage();

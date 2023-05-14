@@ -1,7 +1,7 @@
 package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.util.PathManager;
 import com.oj.videostreamingserver.domain.vod.domain.VideoEntry;
 import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.router.VodRouter;
@@ -33,7 +33,6 @@ import org.springframework.mock.web.reactive.function.server.MockServerRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.transaction.reactive.TransactionalOperator;
-import org.springframework.util.MimeType;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.MultiValueMapAdapter;
 import reactor.core.publisher.Flux;

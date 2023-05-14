@@ -1,8 +1,6 @@
 package com.oj.videostreamingserver.domain.vod.dto.domain;
 
-import org.reactivestreams.Publisher;
-import org.springframework.util.Assert;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 public class EncodingEvent<T> {
@@ -13,30 +11,48 @@ public class EncodingEvent<T> {
     private volatile Status status;
 
     //예외시 실행할 폴백
-    private final Mono<T> fallback;
+    private final Runnable failureHandler;
+    private final Runnable completeHandler;
 
 
-    public EncodingEvent(Sinks.Many<T> sink, Mono<T> fallback) {
-        Assert.notNull(sink, "sink must not be null");
-        Assert.notNull(fallback, "fallback must not be null");
+    public EncodingEvent(Sinks.Many<T> sink, Runnable failureHandler, Runnable completeHandler) {
         this.sink = sink;
-        this.fallback = fallback;
         this.status = Status.READY;
+        this.failureHandler = failureHandler;
+        this.completeHandler = completeHandler;
     }
 
-    public Mono<T> getFallback() {
-        return fallback;
+    public EncodingEvent(Sinks.Many<T> sink) {
+        this.sink = sink;
+        this.status = Status.READY;
+        this.failureHandler = () -> {};
+        this.completeHandler = () -> {};
     }
 
-    public Sinks.Many<T> getSink() {
-        return sink;
+    public Flux<T> getFlux(){
+        return sink.asFlux();
     }
-
     public Status getStatus() {
         return status;
     }
 
-    public synchronized void reportRunning(){
+    public void reportRunning(){
         this.status = Status.RUNNING;
+    }
+    public void reportComplete(){
+        this.status = Status.COMPLETE;
+        this.sink.tryEmitComplete();
+        completeHandler.run();
+    }
+
+    public void reportError(Throwable e){
+        this.status = Status.ERROR;
+        this.sink.tryEmitError(e);
+        this.sink.tryEmitComplete();
+        failureHandler.run();
+    }
+
+    public void reportNext(T data){
+        sink.emitNext(data, Sinks.EmitFailureHandler.FAIL_FAST);
     }
 }
