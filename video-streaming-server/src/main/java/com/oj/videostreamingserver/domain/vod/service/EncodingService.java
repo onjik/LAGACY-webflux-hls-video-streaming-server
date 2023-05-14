@@ -1,14 +1,15 @@
 package com.oj.videostreamingserver.domain.vod.service;
 
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.util.PathManager;
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
-import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingRequestForm;
+import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
 import com.oj.videostreamingserver.global.error.exception.KernelProcessException;
 import lombok.RequiredArgsConstructor;
 
 import net.bramp.ffmpeg.FFprobe;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
@@ -16,21 +17,21 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
-import reactor.core.scheduler.Schedulers;
+import reactor.core.publisher.Sinks;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class EncodingService {
 
     private final FFprobe fFprobe;
-    private final ProcessService processService;
+    private final ExecuteService executeService;
 
     private final R2dbcEntityTemplate template;
     private final TransactionalOperator transactionalOperator;
@@ -74,17 +75,31 @@ public class EncodingService {
                     String select = "select=eq(n\\,0),";
                     //퀄리티 설정
                     int quality = 3; //1~31, 1이 가장 좋음
+                    //전체 프레임수
+                    long totalFrame = videoStream.nb_frames;
 
                     //FFmpeg 명령어 생성
                     //예시 ffmpeg 명령어 : ffmpeg -i test.jpg -vf "crop=600:374:0:0,scale=1920:1080" -q:v 1 output.jpg
                     Path outputThumbnailPath = PathManager.VodPath.thumbnailOf(videoId);
-                    String[] command = {"ffmpeg", "-i", targetFile.getAbsolutePath(),"-y", "-vf", select+crop, "-q:v", String.valueOf(quality) , outputThumbnailPath.toAbsolutePath().toString()};
+                    String[] command = {"ffmpeg", "-i", targetFile.getAbsolutePath(),"-y", "-vf", select+crop, "-q:v", String.valueOf(quality) , outputThumbnailPath.toAbsolutePath().toString(), "-progress", "-", "-nostats", "-v", "quiet" };
                     ProcessBuilder processBuilder = new ProcessBuilder(command);
 
                     //별도의 쓰레드에서 비동기 실행
-                    processService.executeAndEmitLog(processBuilder, videoId, EncodingChannel.Type.THUMBNAIL)
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe();
+                    executeService.executeAndEmitLog(
+                            processBuilder,
+                            (line, emitter) -> {
+                                Stream.of(line)
+                                        .filter(log -> log.startsWith("frame="))
+                                        .map(log -> log.substring(6))
+                                        .mapToDouble(Double::parseDouble)
+                                        .mapToObj(frame -> String.format("%.2s", frame / totalFrame * 100))
+                                        .forEach(emitter::next);
+                            },
+                            new EncodingEvent<>(Sinks.many().multicast().directBestEffort()),
+                            videoId,
+                            EncodingChannel.Type.THUMBNAIL
+                            );
+
                     return Mono.empty();
                 });
 
@@ -104,7 +119,7 @@ public class EncodingService {
      * @return Mono<Void> 비디오 인코딩이 완료되면 완료 신호를 보낸다.
      * @throws IllegalArgumentException 인자중에 null 이나 emptyList 이 있을 경우 발생한다.
      */
-    public Mono<Void> encodeVideo(UUID videoId, Path ogVideoPath, List<Integer> resolutionCandidates) throws IllegalArgumentException {
+    public Mono<FFmpegProbeResult> encodeVideo(UUID videoId, Path ogVideoPath, List<Integer> resolutionCandidates) throws IllegalArgumentException {
         Assert.notNull(videoId, "videoId must not be null");
         Assert.notNull(ogVideoPath, "ogVideoPath must not be null");
         Assert.notNull(resolutionCandidates, "resolutionCandidates must not be null");
@@ -113,21 +128,14 @@ public class EncodingService {
         return Mono.fromCallable(() -> fFprobe.probe(ogVideoPath.toAbsolutePath().toString()))
                 .onErrorResume(e -> Mono.error(new KernelProcessException("ffprobe", List.of(ogVideoPath.toAbsolutePath().toString()), e)))
                 .flatMap(probeResult -> {
-                    List<FFmpegStream> audioStream = probeResult.getStreams().stream()
+                    Optional<FFmpegStream> audioStream = probeResult.getStreams().stream()
                             .filter(stream -> stream.codec_type == FFmpegStream.CodecType.AUDIO)
-                            .collect(Collectors.toList());
-                    List<FFmpegStream> videoStream = probeResult.getStreams().stream()
+                            .findFirst();
+                    FFmpegStream videoStream = probeResult.getStreams().stream()
                             .filter(stream -> stream.codec_type == FFmpegStream.CodecType.VIDEO)
-                            .collect(Collectors.toList());
-                    return Mono.zip(Mono.just(audioStream), Mono.just(videoStream));
-                })
-                .filter(tuple -> !tuple.getT2().isEmpty())
-                .switchIfEmpty(Mono.defer(() -> Mono.error(new InvalidInputValueException("videoFile", videoId.toString(), "비디오 파일에 비디오 스트림이 존재하지 않습니다."))))
-                .flatMap(tuple -> {
-                    List<FFmpegStream> audioStream = tuple.getT1();
-                    List<FFmpegStream> videoStream = tuple.getT2();
+                            .findFirst().orElseThrow(() -> new InvalidInputValueException("videoFile", videoId.toString(), "비디오 파일에 비디오 스트림이 존재하지 않습니다."));
                     //일단 어떤 화질을 만들 것인지 선택
-                    int height = videoStream.get(0).height;
+                    int height = videoStream.height;
                     List<Integer> resolutions = resolutionCandidates.stream()
                             .filter(i -> i <= height)
                             .collect(Collectors.toList());
@@ -135,8 +143,10 @@ public class EncodingService {
                     if (resolutions.isEmpty()) {
                         resolutions.add(height);
                     }
+                    //전체 프레임 수
+                    long totalFrame = videoStream.nb_frames;
                     //커맨드 만들기
-                    String[] command = buildHlsEncodeCommand(resolutions, ogVideoPath.toFile(), PathManager.VodPath.rootOf(videoId), audioStream.size() > 0);
+                    String[] command = buildHlsEncodeCommand(resolutions, ogVideoPath.toFile(), PathManager.VodPath.rootOf(videoId), audioStream.isPresent());
                     ProcessBuilder processBuilder = new ProcessBuilder(command);
 
 
@@ -146,7 +156,7 @@ public class EncodingService {
                     3. 모두 완료되면, 프로세스 실행 -> 이 안에는 중계 로직이 들어 있음
                     4. 프로세스 실행이 완료되면, 끝남 (commit)
                      */
-                    Mono.just(resolutions)
+                    return Mono.just(resolutions)
                             .as(transactionalOperator::transactional)
                             .flatMapMany(Flux::fromIterable)
                             .flatMap(resolution -> {
@@ -154,10 +164,26 @@ public class EncodingService {
                                 return Mono.just(new VideoMediaEntry(null, resolution, videoRootPath , videoId));
                             })
                             .flatMap(template::insert)
-                            .thenMany(processService.executeAndEmitLog(processBuilder, videoId, EncodingChannel.Type.VIDEO))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe();
-                    return Mono.empty();
+                            .then(Mono.just(new EncodingEvent<String>(Sinks.many().multicast().directBestEffort())))
+                            .flatMap(encodingEvent ->
+                                //별도의 쓰레드에서 비동기 실행
+                                Mono.just(
+                                    executeService.executeAndEmitLogBuilder()
+                                            .videoId(videoId)
+                                            .type(EncodingChannel.Type.VIDEO)
+                                            .logLineConsumer((line, emitter) -> {
+                                                Stream.of(line)
+                                                        .filter(log -> log.startsWith("frame="))
+                                                        .map(log -> log.substring(6))
+                                                        .mapToDouble(Double::parseDouble)
+                                                        .mapToObj(frame -> String.format("%.2f", frame / totalFrame * 100))
+                                                        .forEach(emitter::next);
+                                            })
+                                            .processBuilder(processBuilder)
+                                            .encodingEvent(encodingEvent)
+                                            .build()))
+                            .then(Mono.just(probeResult));
+
                 });
 
     }
@@ -178,9 +204,9 @@ public class EncodingService {
 
         List<String> commandPrefix = List.of(
                 "ffmpeg", "-i", input,
-                "-preset", "veryfast", "-threads", "1",
+                "-preset", "ultrafast", "-threads", "1",
                 "-c:v", "libx264", "-crf", "22", "-c:a", "aac", "-ar", "48000",
-                "-f", "hls", "-hls_time", "10", "-hls_playlist_type", "vod", "-hls_list_size", "0", "-hls_flags", "independent_segments"
+                "-f", "hls", "-hls_time", "10", "-hls_playlist_type", "vod", "-hls_list_size", "0", "-hls_flags", "independent_segments", "-progress", "-", "-nostats", "-v", "quiet"
                 );
 
         commandBuffer.addAll(commandPrefix);

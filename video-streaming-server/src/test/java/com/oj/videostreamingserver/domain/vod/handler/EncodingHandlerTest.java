@@ -1,13 +1,15 @@
 package com.oj.videostreamingserver.domain.vod.handler;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.util.PathManager;
 import com.oj.videostreamingserver.domain.vod.domain.VideoEntry;
 import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.router.VodRouter;
 import com.oj.videostreamingserver.domain.vod.service.EncodingService;
 import com.oj.videostreamingserver.domain.vod.service.FileService;
 import com.oj.videostreamingserver.global.error.exception.InvalidInputValueException;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
+import net.bramp.ffmpeg.probe.FFmpegStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,6 +30,7 @@ import org.springframework.http.codec.multipart.FormFieldPart;
 import org.springframework.http.codec.multipart.Part;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.reactive.function.server.MockServerRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.util.MultiValueMap;
@@ -98,18 +101,27 @@ class EncodingHandlerTest {
             Map<String,List<FilePart>> map = new HashMap<>();
 
             Resource videoFile = new DefaultResourceLoader().getResource("classpath:sample.mp4");
-            List<FilePart> videoPart = List.of(createFilePart(videoFile));
+            List<FilePart> videoPart = List.of(createFilePart(videoFile,MediaType.valueOf("video/mp4")));
             map.put("video",videoPart);
 
             Resource thumbnailFile = new DefaultResourceLoader().getResource("classpath:sample.jpg");
-            List<FilePart> thumbnailPart = List.of(createFilePart(thumbnailFile));
+            List<FilePart> thumbnailPart = List.of(createFilePart(thumbnailFile,MediaType.valueOf("image/jpeg")));
             map.put("thumbnail",thumbnailPart);
 
 
             //mock
             when(fileService.saveFilePart(any(FilePart.class),any(Path.class))).thenReturn(Mono.<Void>empty());
             when(encodingService.encodeThumbnail(any(UUID.class),any(File.class))).thenReturn(Mono.<Void>empty());
-            when(encodingService.encodeVideo(any(UUID.class),any(Path.class),anyList())).thenReturn(Mono.<Void>empty());
+            FFmpegProbeResult mockResult = mock(FFmpegProbeResult.class);
+            List mockList = mock(List.class);
+            FFmpegStream mockStream = mock(FFmpegStream.class);
+
+            when(mockResult.getStreams()).thenReturn(mockList);
+            when(mockList.get(0)).thenReturn(mockStream);
+            ReflectionTestUtils.setField(mockStream,"duration",1000.0);
+
+
+            when(encodingService.encodeVideo(any(UUID.class),any(Path.class),anyList())).thenReturn(Mono.just(mockResult));
             when(template.exists(any(Query.class),eq(VideoEntry.class))).thenReturn(Mono.just(true));
             when(template.exists(any(Query.class),eq(VideoMediaEntry.class))).thenReturn(Mono.just(false));
 
@@ -147,7 +159,7 @@ class EncodingHandlerTest {
             Map<String,List<Part>> map = new HashMap<>();
 
             Resource videoFile = new DefaultResourceLoader().getResource("classpath:sample.mp4");
-            List<Part> videoPart = List.of(createFilePart(videoFile));
+            List<Part> videoPart = List.of(createFilePart(videoFile,MediaType.valueOf("video/mp4")));
             map.put("video",videoPart);
 
             Resource thumbnailFile = new DefaultResourceLoader().getResource("classpath:sample.jpg");
@@ -190,7 +202,7 @@ class EncodingHandlerTest {
             };
         }
 
-        private FilePart createFilePart(Resource source) throws IOException {
+        private FilePart createFilePart(Resource source, MediaType mediaType) throws IOException {
             MockMultipartFile resource = new MockMultipartFile("video", source.getInputStream());
             return new FilePart() {
                 @Override
@@ -216,7 +228,7 @@ class EncodingHandlerTest {
                 @Override
                 public HttpHeaders headers() {
                     HttpHeaders httpHeaders = new HttpHeaders();
-                    httpHeaders.setContentType(MediaType.valueOf(resource.getContentType()));
+                    httpHeaders.setContentType(mediaType);
                     return httpHeaders;
                 }
 

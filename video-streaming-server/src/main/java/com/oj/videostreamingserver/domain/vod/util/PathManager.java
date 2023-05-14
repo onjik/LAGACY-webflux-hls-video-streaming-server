@@ -1,9 +1,5 @@
-package com.oj.videostreamingserver.domain.vod.component;
+package com.oj.videostreamingserver.domain.vod.util;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
 import java.nio.file.Path;
 import java.util.UUID;
 

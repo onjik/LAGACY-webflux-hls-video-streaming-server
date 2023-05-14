@@ -35,20 +35,14 @@ public class EncodingChannel {
         return Optional.ofNullable(encodingEvents.get(key));
     }
 
-    public EncodingEvent<String> registerEvent(final UUID videoId, final Type jobType) throws IllegalArgumentException {
-        return registerEvent(videoId, jobType, Sinks.many().multicast().directBestEffort(),Fallbacks.<String>defaultFallback());
+    public void registerEvent(final UUID videoId, final Type jobType, EncodingEvent<String> encodingEvent) throws IllegalArgumentException {
+        this.encodingEvents.put(keyResolver(videoId,jobType), encodingEvent);
+    }
+    public void removeEncodingEvent(final EncodingEvent<String> value){
+        //찾아서 map에서 삭제한다.
+        encodingEvents.entrySet().removeIf(entry -> entry.getValue().equals(value));
     }
 
-    public EncodingEvent<String> registerEvent(final UUID videoId, final Type jobType, final Sinks.Many<String> sinks, Mono<String> fallback) throws IllegalArgumentException {
-        String key = keyResolver(videoId, jobType);
-        Assert.isTrue(!encodingEvents.containsKey(key), "Already Exist Encoding Event");
-        encodingEvents.put(key, new EncodingEvent<String>(sinks,fallback));
-        return encodingEvents.get(key);
-    }
-
-    public void removeEncodingEvent(final String key){
-        encodingEvents.remove(key);
-    }
 
     public boolean contains(UUID videoId , Type jobType){
         return encodingEvents.containsKey(keyResolver(videoId, jobType));

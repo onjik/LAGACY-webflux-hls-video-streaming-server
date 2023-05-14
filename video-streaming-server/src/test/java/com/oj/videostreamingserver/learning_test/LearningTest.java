@@ -138,4 +138,24 @@ public class LearningTest {
                 .blockLast();
         System.out.println();
     }
+
+
+    @Test
+    void threadTest(){
+        Mono.just("hello")
+                .publishOn(Schedulers.boundedElastic())
+                .flatMap(s -> {
+                    System.out.println(Thread.currentThread().getName() + " : " + s);
+                    return Mono.just(s);
+                })
+                .flatMap(s -> {
+                    System.out.println(Thread.currentThread().getName() + " : " + s);
+                    return Mono.just(s);
+                })
+                .flatMap(s -> {
+                    System.out.println(Thread.currentThread().getName() + " : " + s);
+                    return Mono.just(s);
+                }).block();
+
+    }
 }

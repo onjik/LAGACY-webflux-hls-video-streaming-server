@@ -22,6 +22,7 @@ public class ThumbnailPatchRequest {
         UUID videoId = UUID.fromString(request.pathVariable("videoId"));
         return request.multipartData()
                 .filter(multiValueMap -> multiValueMap.getFirst("thumbnail") instanceof FilePart)
+                .filter(multiValueMap -> multiValueMap.getFirst("thumbnail").headers().getContentType().getType().equals("image"))
                 .switchIfEmpty(Mono.defer(()->Mono.error(new InvalidInputValueException("mandatory field","","thumbnail field is mandatory, but not exist or type unmatched(needed = FilePart)"))))
                 .flatMap(multiValueMap -> Mono.just((FilePart)multiValueMap.getFirst("thumbnail")))
                 .flatMap(thumbnail -> Mono.just(new ThumbnailPatchRequest(videoId, thumbnail)));
