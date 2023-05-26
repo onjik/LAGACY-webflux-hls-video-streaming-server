@@ -1,13 +1,12 @@
-package com.oj.videostreamingserver.domain.vod.component;
+package com.oj.videostreamingserver.domain.vod.config;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.util.PathManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import javax.annotation.PostConstruct;
-import java.lang.reflect.Field;
 import java.nio.file.Path;
 
 @Configuration

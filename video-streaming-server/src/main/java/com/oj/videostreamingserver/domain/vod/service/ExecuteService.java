@@ -3,11 +3,16 @@ package com.oj.videostreamingserver.domain.vod.service;
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
 import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import com.oj.videostreamingserver.global.error.exception.KernelProcessException;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 
 import java.io.BufferedReader;
@@ -16,11 +21,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ProcessService {
+public class ExecuteService {
 
     private final EncodingChannel encodingChannel;
 
@@ -31,12 +38,15 @@ public class ProcessService {
      * @param processBuilder 실행시킬 프로세스 빌더
      * @return 프로세스를 실행시키고 로그를 방출하는 flux
      */
-    public Flux<String> executeAndEmitLog(final ProcessBuilder processBuilder, UUID videoId, EncodingChannel.Type type) {
+    @Builder(builderMethodName = "executeAndEmitLogBuilder")
+    public Disposable executeAndEmitLog(final ProcessBuilder processBuilder,
+                                        BiConsumer<String, FluxSink<String>> logLineConsumer,
+                                        EncodingEvent<String> encodingEvent,
+                                        UUID videoId,
+                                        EncodingChannel.Type type) {
         //중계 이벤트 등록
-        EncodingEvent<String> encodingEvent = encodingChannel.registerEvent(videoId, type);
-        Sinks.Many<String> sink = encodingEvent.getSink();
+        encodingChannel.registerEvent(videoId, type, encodingEvent);
         processBuilder.redirectErrorStream(true); //에러 스트림을 표준 출력으로 합침
-        //processBuilder를 실행시키고 inputstream을 한줄씩 읽어서 방출하는 flux
 
         return Flux.<String>create(emitter -> {
             Process process = null;
@@ -47,11 +57,11 @@ public class ProcessService {
             }
             try (InputStream inputStream = process.getInputStream();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                //인풋 스트림을 next로 중계
-                String line;
-                while ((line = reader.readLine()) != null){
-                    emitter.next(line);
-                }
+                //파싱해서 퍼센트 단위로 전달
+                reader.lines()
+                        .forEach(line -> {
+                            logLineConsumer.accept(line, emitter);
+                        });
 
                 if (process.waitFor() != 0){
                     new BufferedReader(new InputStreamReader(process.getErrorStream())).lines().forEach(log::error);
@@ -65,16 +75,12 @@ public class ProcessService {
         })
 
                 .doOnSubscribe(subscription -> encodingEvent.reportRunning())
-                .doOnNext(sink::tryEmitNext)
-                .doOnError(e -> {
-                    sink.tryEmitError(e);
-                    sink.tryEmitComplete();
-                })
-                .onErrorResume(e -> encodingEvent.getFallback())
-                .doOnComplete(() -> {
-                    sink.tryEmitComplete();
-                    encodingChannel.removeEncodingEvent(encodingChannel.keyResolver(videoId, type));
-                });
+                .doOnNext(encodingEvent::reportNext)
+                .doOnError(encodingEvent::reportError)
+                .doOnComplete(encodingEvent::reportComplete)
+                .doFinally(signalType -> encodingChannel.removeEncodingEvent(encodingEvent))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe();
     }
 
 }

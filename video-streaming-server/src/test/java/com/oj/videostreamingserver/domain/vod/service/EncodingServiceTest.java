@@ -1,7 +1,7 @@
 package com.oj.videostreamingserver.domain.vod.service;
 
 import com.oj.videostreamingserver.domain.vod.component.EncodingChannel;
-import com.oj.videostreamingserver.domain.vod.component.PathManager;
+import com.oj.videostreamingserver.domain.vod.util.PathManager;
 import com.oj.videostreamingserver.domain.vod.domain.VideoMediaEntry;
 import com.oj.videostreamingserver.domain.vod.dto.domain.EncodingEvent;
 import net.bramp.ffmpeg.FFprobe;
@@ -10,12 +10,9 @@ import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
-import org.springframework.data.r2dbc.core.ReactiveInsertOperation;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -39,7 +36,7 @@ class EncodingServiceTest {
     //test target
     EncodingService encodingService;
     FFprobe ffprobe;
-    ProcessService processService;
+    ExecuteService executeService;
     R2dbcEntityTemplate r2dbcEntityTemplate;
     TransactionalOperator transactionalOperator;
     EncodingChannel encodingChannel;
@@ -53,9 +50,9 @@ class EncodingServiceTest {
         this.encodingChannel = new EncodingChannel();
 
         this.ffprobe = new FFprobe("ffprobe");
-        processService = new ProcessService(this.encodingChannel);
+        executeService = new ExecuteService(this.encodingChannel);
 
-        this.encodingService = new EncodingService(ffprobe, processService, r2dbcEntityTemplate, transactionalOperator);
+        this.encodingService = new EncodingService(ffprobe, executeService, r2dbcEntityTemplate, transactionalOperator);
     }
 
     @Nested
@@ -69,9 +66,10 @@ class EncodingServiceTest {
             Path seg = Path.of("/Users/kim-onji/Documents/GitHub/webflux-hls-video-streaming-server/video-streaming-server/app/test/vod/787cd051-aea5-48c5-81b9-c4df7e9ed2db/%v/file_%03d.ts");
             Path output = Path.of("/Users/kim-onji/Documents/GitHub/webflux-hls-video-streaming-server/video-streaming-server/app/test/vod/787cd051-aea5-48c5-81b9-c4df7e9ed2db/%v/index.m3u8");
             String expected = "ffmpeg -i " + input.toString() +
-                    " -preset veryfast -threads 1 " +
+                    " -preset ultrafast -threads 1 " +
                     "-c:v libx264 -crf 22 -c:a aac -ar 48000 " +
                     "-f hls -hls_time 10 -hls_playlist_type vod -hls_list_size 0 -hls_flags independent_segments " +
+                    "-progress - -nostats -v quiet " +
                     "-map 0:v:0 -map 0:a:0 -filter:v:0 scale=-2:360 " +
                     "-map 0:v:0 -map 0:a:0 -filter:v:1 scale=-2:720 " +
                     "-map 0:v:0 -map 0:a:0 -filter:v:2 scale=-2:1080 " +
@@ -92,9 +90,10 @@ class EncodingServiceTest {
             Path seg = Path.of("/Users/kim-onji/Documents/GitHub/webflux-hls-video-streaming-server/video-streaming-server/app/test/vod/787cd051-aea5-48c5-81b9-c4df7e9ed2db/%v/file_%03d.ts");
             Path output = Path.of("/Users/kim-onji/Documents/GitHub/webflux-hls-video-streaming-server/video-streaming-server/app/test/vod/787cd051-aea5-48c5-81b9-c4df7e9ed2db/%v/index.m3u8");
             String expected = "ffmpeg -i " + input +
-                    " -preset veryfast -threads 1 " +
+                    " -preset ultrafast -threads 1 " +
                     "-c:v libx264 -crf 22 -c:a aac -ar 48000 " +
                     "-f hls -hls_time 10 -hls_playlist_type vod -hls_list_size 0 -hls_flags independent_segments " +
+                    "-progress - -nostats -v quiet " +
                     "-map 0:v:0 -filter:v:0 scale=-2:360 " +
                     "-map 0:v:0 -filter:v:1 scale=-2:720 " +
                     "-map 0:v:0 -filter:v:2 scale=-2:1080 " +
@@ -181,7 +180,7 @@ class EncodingServiceTest {
             //중계 채널에서 정상적으로 메시지를 날리는지 검증
             EncodingEvent<String> stringEncodingEvent = encodingChannel.getEncodingEvent(broadKey).get();
             assertNotNull(stringEncodingEvent);
-            List<String> messages = stringEncodingEvent.getSink().asFlux()
+            List<String> messages = stringEncodingEvent.getFlux()
                     .doOnNext(System.out::println)
                     .doOnError(s -> fail())
                     .buffer().blockLast();
@@ -223,7 +222,7 @@ class EncodingServiceTest {
 
             EncodingEvent<String> stringEncodingEvent = encodingChannel.getEncodingEvent(testVideoId, EncodingChannel.Type.THUMBNAIL).get();
             assertNotNull(stringEncodingEvent);
-            List<String> messages = stringEncodingEvent.getSink().asFlux()
+            List<String> messages = stringEncodingEvent.getFlux()
                     .doOnNext(System.out::println)
                     .doOnError(s -> fail())
                     .buffer().blockLast();

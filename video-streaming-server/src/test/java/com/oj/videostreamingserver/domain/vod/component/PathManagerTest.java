@@ -1,8 +1,7 @@
 package com.oj.videostreamingserver.domain.vod.component;
 
+import com.oj.videostreamingserver.domain.vod.util.PathManager;
 import org.junit.jupiter.api.Test;
-
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
