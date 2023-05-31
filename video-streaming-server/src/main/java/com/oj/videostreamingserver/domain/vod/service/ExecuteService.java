@@ -10,8 +10,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
-import reactor.core.publisher.SignalType;
-import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 
@@ -22,15 +21,19 @@ import java.io.InputStreamReader;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ExecuteService {
 
+    private final Scheduler independentThreadPool;
     private final EncodingChannel encodingChannel;
 
+    public ExecuteService(EncodingChannel encodingChannel) {
+        //시스템 코어의 두배만큼의 스레드를 가지는 스레드 풀(ExecutorService)을 생성한다.
+        this.independentThreadPool = Schedulers.newBoundedElastic(Runtime.getRuntime().availableProcessors() * 2, Integer.MAX_VALUE, "independentThreadPool", 60, true);
+        this.encodingChannel = encodingChannel;
+    }
 
     /**
      * 프로세스를 실행시키고 로그를 방출하는 flux를 반환
@@ -79,7 +82,7 @@ public class ExecuteService {
                 .doOnError(encodingEvent::reportError)
                 .doOnComplete(encodingEvent::reportComplete)
                 .doFinally(signalType -> encodingChannel.removeEncodingEvent(encodingEvent))
-                .subscribeOn(Schedulers.boundedElastic())
+                .subscribeOn(this.independentThreadPool)
                 .subscribe();
     }
 
