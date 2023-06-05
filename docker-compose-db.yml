@@ -1,0 +1,30 @@
+version: "3.8" # 버전 지정
+
+services: # 컨테이너 설정
+
+  # https://mycup.tistory.com/382
+  ###################################
+  #### DB Mysql
+  ###################################
+ mysql:
+   image: mysql
+   container_name: db-mysql
+   restart: always # 다운시 항상 재시작
+   ports:
+     - 3306:3306
+   command:
+     - --default-authentication-plugin=mysql_native_password
+     - --character-set-server=utf8mb4
+     - --collation-server=utf8mb4_unicode_ci
+     - --range_optimizer_max_mem_size=16777216
+   environment:
+     MYSQL_PORT: 3306
+     MYSQL_ROOT_PASSWORD: qwer1234
+     MYSQL_USER: user
+     MYSQL_PASSWORD: qwer1234
+     TZ: Asia/Seoul
+   volumes:
+     # 설치 주소
+     - ./app/mysql/db:/var/lib/mysql:rw
+     # 아래 주소의 sql 문을 알파벳 순서대로 실행한다.
+     - ./app/mysql/init:/docker-entrypoint-initdb.d:ro
